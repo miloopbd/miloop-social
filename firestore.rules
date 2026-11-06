@@ -30,24 +30,29 @@ service cloud.firestore {
                     && request.resource.data.likes.size() == 0
                     && request.resource.data.likeCount == 0
                     && request.resource.data.createdAt == request.time;
+
       allow update: if signedIn()
-                    && resource.data.authorUid is string
                     && request.resource.data.authorUid == resource.data.authorUid
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes','likeCount'])
                     && request.resource.data.likes is list
-                    && request.resource.data.likes.size() <= 10000
                     && request.resource.data.likeCount is int
-                    && request.resource.data.likeCount >= 0
                     && request.resource.data.likeCount == request.resource.data.likes.size()
-                    && request.resource.data.likes.hasAll(resource.data.likes)
-                       || (signedIn()
-                           && request.resource.data.authorUid == resource.data.authorUid
-                           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes','likeCount'])
-                           && request.resource.data.likes is list
-                           && request.resource.data.likeCount is int
-                           && request.resource.data.likeCount >= 0
-                           && request.resource.data.likeCount == request.resource.data.likes.size()
-                           && resource.data.likes.hasAll(request.resource.data.likes));
+                    && request.resource.data.likeCount >= 0
+                    && (
+                      (
+                        request.resource.data.likes.size() == resource.data.likes.size() + 1
+                        && request.resource.data.likes.hasAll(resource.data.likes)
+                        && request.resource.data.likes.hasAny([request.auth.uid])
+                      )
+                      ||
+                      (
+                        request.resource.data.likes.size() == resource.data.likes.size() - 1
+                        && resource.data.likes.hasAll(request.resource.data.likes)
+                        && resource.data.likes.hasAny([request.auth.uid])
+                        && !request.resource.data.likes.hasAny([request.auth.uid])
+                      )
+                    );
+
       allow delete: if signedIn() && resource.data.authorUid == request.auth.uid;
     }
   }
