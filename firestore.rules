@@ -1,17 +1,54 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Each signed-in user can read and manage only their own profile.
+    function signedIn() { return request.auth != null; }
+
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn()
                     && request.auth.uid == userId
                     && request.resource.data.uid == userId;
-      allow update: if request.auth != null
+      allow update: if signedIn()
                     && request.auth.uid == userId
                     && resource.data.uid == userId
                     && request.resource.data.uid == userId;
       allow delete: if false;
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if signedIn()
+                    && request.resource.data.keys().hasOnly(['authorUid','authorName','text','createdAt','likes','likeCount'])
+                    && request.resource.data.authorUid == request.auth.uid
+                    && request.resource.data.authorName is string
+                    && request.resource.data.authorName.size() > 0
+                    && request.resource.data.authorName.size() <= 60
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() > 0
+                    && request.resource.data.text.size() <= 1000
+                    && request.resource.data.likes is list
+                    && request.resource.data.likes.size() == 0
+                    && request.resource.data.likeCount == 0
+                    && request.resource.data.createdAt == request.time;
+      allow update: if signedIn()
+                    && resource.data.authorUid is string
+                    && request.resource.data.authorUid == resource.data.authorUid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes','likeCount'])
+                    && request.resource.data.likes is list
+                    && request.resource.data.likes.size() <= 10000
+                    && request.resource.data.likeCount is int
+                    && request.resource.data.likeCount >= 0
+                    && request.resource.data.likeCount == request.resource.data.likes.size()
+                    && request.resource.data.likes.hasAll(resource.data.likes)
+                       || (signedIn()
+                           && request.resource.data.authorUid == resource.data.authorUid
+                           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes','likeCount'])
+                           && request.resource.data.likes is list
+                           && request.resource.data.likeCount is int
+                           && request.resource.data.likeCount >= 0
+                           && request.resource.data.likeCount == request.resource.data.likes.size()
+                           && resource.data.likes.hasAll(request.resource.data.likes));
+      allow delete: if signedIn() && resource.data.authorUid == request.auth.uid;
     }
   }
 }
