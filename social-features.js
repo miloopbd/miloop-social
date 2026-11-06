@@ -116,7 +116,7 @@ async function showMemberProfile(uid){
     const details=fields.filter(x=>p[x[1]]).map(x=>'<div class="social-item"><b>'+x[0]+'</b><small>'+escapeHtml(p[x[1]])+'</small></div>').join("");
     openPanel(mine?"My profile":(p.displayName||"Member profile"),
       '<div style="text-align:center;padding:10px"><div class="chat-avatar" style="width:64px;height:64px;margin:auto;font-size:22px">'+escapeHtml((p.displayName||"M").charAt(0).toUpperCase())+'</div><h2>'+escapeHtml(p.displayName||"MILOOP member")+'</h2><p>'+escapeHtml(p.bio||"")+'</p></div>'+
-      (mine?'<button class="action" id="editProfileDetails" style="display:block;width:100%;margin:8px 0 14px">✎ Edit profile</button><button class="action secondary" id="shareProfileLink" style="display:block;width:100%;margin:0 0 14px">↗ Share profile</button>':'<button class="action" id="messageProfile" style="display:block;width:100%;margin:8px 0 14px">Message</button>')+
+      (mine?'<button class="action" id="editProfileDetails" style="display:block;width:100%;margin:8px 0 14px">✎ Edit profile</button><button class="action secondary" id="shareProfileLink" style="display:block;width:100%;margin:0 0 14px">↗ Share profile</button>':'<div style="display:flex;gap:7px;margin:8px 0 14px"><button class="action" id="profileFollowToggle" style="flex:1">Loading…</button><button class="action secondary" id="messageProfile" style="flex:1">Message</button></div>')+
       '<div class="social-item"><b>Profile ID</b><small>'+escapeHtml(uid)+'</small></div><div id="profileFollowStats" style="display:flex;gap:8px;margin:10px 0"><button class="action secondary" id="showFollowers">Followers · …</button><button class="action secondary" id="showFollowing">Following · …</button></div>'+details+
       '<h3 style="font-size:13px">Posts</h3><div id="memberPosts">Loading…</div>');
     stopListener=onSnapshot(query(collection(db,"posts"),where("authorUid","==",uid),limit(50)),posts=>{
@@ -130,6 +130,35 @@ async function showMemberProfile(uid){
     $("showFollowing").textContent="Following · "+followingSnap.size;
     $("showFollowers").onclick=()=>openFollowList(uid,"followers");
     $("showFollowing").onclick=()=>openFollowList(uid,"following");
+    if(!mine){
+      const followRef=doc(db,"follows",currentUser.uid,"following",uid);
+      const followButton=$("profileFollowToggle");
+      let isFollowing=(await getDoc(followRef)).exists();
+      const renderFollow=()=>{followButton.textContent=isFollowing?"Following ✓":"＋ Follow";followButton.classList.toggle("secondary",isFollowing);};
+      renderFollow();
+      followButton.onclick=async()=>{
+        followButton.disabled=true;
+        try{
+          if(isFollowing){
+            await deleteDoc(followRef);isFollowing=false;toast("Unfollowed.");
+          }else{
+            await setDoc(followRef,{uid,createdAt:serverTimestamp()});
+            isFollowing=true;
+            try{await addDoc(collection(db,"users",uid,"notifications"),{type:"follow",fromUid:currentUser.uid,text:(currentUser.displayName||"A member")+" started following you.",createdAt:serverTimestamp(),read:false});}
+            catch(notificationError){console.warn("Follow notification could not be sent:",notificationError);}
+            toast("You are now following "+(p.displayName||"this member")+".");
+          }
+          renderFollow();
+          const [newFollowers,newFollowing]=await Promise.all([
+            getDocs(query(collectionGroup(db,"following"),where("uid","==",uid))),
+            getDocs(query(collection(db,"follows",uid,"following")))
+          ]);
+          $("showFollowers").textContent="Followers · "+newFollowers.size;
+          $("showFollowing").textContent="Following · "+newFollowing.size;
+        }catch(e){console.error(e);toast("Follow action failed: "+(e.code||e.message));}
+        finally{followButton.disabled=false;}
+      };
+    }
     if(mine){$("editProfileDetails").onclick=()=>editOwnProfile(p);$("shareProfileLink").onclick=async()=>{const url=new URL(location.href);url.search="";url.searchParams.set("profile",uid);url.hash="";try{await navigator.clipboard.writeText(url.href);toast("Profile link copied.");}catch(e){const f=document.createElement("textarea");f.value=url.href;document.body.append(f);f.select();try{document.execCommand("copy");toast("Profile link copied.");}catch(_){toast("Could not copy link.");}f.remove();}};}else $("messageProfile").onclick=()=>openChat(uid,p.displayName||"MILOOP member");
   }catch(e){console.error(e);toast("Could not open profile: "+(e.code||e.message));}
 }
