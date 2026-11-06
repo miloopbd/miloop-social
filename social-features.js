@@ -111,7 +111,7 @@ handlers.messages=()=>{
     const chatId=members.join("_");
     try{
       const chatRef=doc(db,"chats",chatId);
-      await setDoc(chatRef,{members,createdAt:serverTimestamp(),updatedAt:serverTimestamp()},{merge:true});
+      const existingChat=await getDoc(chatRef);\n      if(existingChat.exists()) await updateDoc(chatRef,{updatedAt:serverTimestamp()});\n      else await setDoc(chatRef,{members,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
       activeChatId=chatId;
       $("chatArea").innerHTML='<div id="chatLog" class="social-chat-log">Loading messages…</div><form id="chatSendForm"><input id="chatMessage" maxlength="1000" placeholder="Write a message…" required><button class="action" type="submit">Send</button></form>';
       if(stopChat)stopChat();
@@ -172,19 +172,19 @@ handlers.follow=()=>{
     try{
       const snap=await getDoc(doc(db,"publicProfiles",uid));
       if(!snap.exists()){$("memberResult").textContent="Profile not found.";return;}
-      const p=snap.data(),followRef=doc(db,"follows",currentUser.uid,"following",uid),followSnap=await getDoc(followRef);
-      $("memberResult").innerHTML=`<div class="social-item"><b>${escapeHtml(p.displayName||"MILOOP member")}</b><p>${escapeHtml(p.bio||"No bio yet.")}</p><small>Profile ID: ${escapeHtml(uid)}</small><button class="action" id="toggleFollow">${followSnap.exists()?"Unfollow":"Follow"}</button></div>`;
+      const p=snap.data(),followRef=doc(db,"follows",currentUser.uid,"following",uid);\n      let isFollowing=(await getDoc(followRef)).exists();
+      $("memberResult").innerHTML=`<div class="social-item"><b>${escapeHtml(p.displayName||"MILOOP member")}</b><p>${escapeHtml(p.bio||"No bio yet.")}</p><small>Profile ID: ${escapeHtml(uid)}</small><button class="action" id="toggleFollow">${isFollowing?"Unfollow":"Follow"}</button></div>`;
       $("toggleFollow").onclick=async()=>{
         try{
-          if(followSnap.exists()){
+          if(isFollowing){
             const {deleteDoc}=await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
-            await deleteDoc(followRef);toast("Unfollowed.");
+            await deleteDoc(followRef);isFollowing=false;toast("Unfollowed.");
           }else{
             await setDoc(followRef,{uid,createdAt:serverTimestamp()});
             await addDoc(collection(db,"users",uid,"notifications"),{type:"follow",fromUid:currentUser.uid,text:(currentUser.displayName||"A member")+" started following you.",createdAt:serverTimestamp(),read:false});
             toast("You are now following this member.");
           }
-          $("toggleFollow").textContent=followSnap.exists()?"Follow":"Following";
+          $("toggleFollow").textContent=isFollowing?"Unfollow":"Follow";
         }catch(e){console.error(e);toast("Follow action failed. Publish the latest Firestore Rules.");}
       };
     }catch(e){console.error(e);toast("Could not find member. Check Rules.");}
