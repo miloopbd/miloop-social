@@ -91,9 +91,9 @@ async function showMemberProfile(uid){
     const details=fields.filter(x=>p[x[1]]).map(x=>'<div class="social-item"><b>'+x[0]+'</b><small>'+escapeHtml(p[x[1]])+'</small></div>').join("");
     openPanel(mine?"My profile":(p.displayName||"Member profile"),
       '<div style="text-align:center;padding:10px"><div class="chat-avatar" style="width:64px;height:64px;margin:auto;font-size:22px">'+escapeHtml((p.displayName||"M").charAt(0).toUpperCase())+'</div><h2>'+escapeHtml(p.displayName||"MILOOP member")+'</h2><p>'+escapeHtml(p.bio||"")+'</p></div>'+
+      (mine?'<button class="action" id="editProfileDetails" style="display:block;width:100%;margin:8px 0 14px">✎ Edit profile</button>':'<button class="action" id="messageProfile" style="display:block;width:100%;margin:8px 0 14px">Message</button>')+
       '<div class="social-item"><b>Profile ID</b><small>'+escapeHtml(uid)+'</small></div>'+details+
-      '<h3 style="font-size:13px">Posts</h3><div id="memberPosts">Loading…</div>'+
-      (mine?'<button class="action" id="editProfileDetails">Edit profile</button>':'<button class="action" id="messageProfile">Message</button>'));
+      '<h3 style="font-size:13px">Posts</h3><div id="memberPosts">Loading…</div>');
     stopListener=onSnapshot(query(collection(db,"posts"),where("authorUid","==",uid),limit(50)),posts=>{
       const el=$("memberPosts");if(!el)return;
       el.innerHTML=posts.empty?'<div class="social-item">No posts yet.</div>':posts.docs.map(d=>'<div class="social-item"><p style="font-size:12px;color:#243653;white-space:pre-wrap">'+escapeHtml(d.data().text||"")+'</p><small>'+escapeHtml(d.data().createdAt?.toDate?.().toLocaleString()||"")+'</small></div>').join("");
