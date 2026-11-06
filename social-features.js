@@ -1,7 +1,7 @@
 import { auth, db } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
-  doc, getDoc, getDocs, setDoc, addDoc, collection, onSnapshot, query, orderBy,
+  doc, getDoc, getDocs, setDoc, addDoc, collection, collectionGroup, onSnapshot, query, orderBy,
   limit, where, serverTimestamp, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
@@ -82,6 +82,31 @@ async function ensurePublicProfile(user){
   }
 }
 
+async function openFollowList(uid,type){
+  const isFollowers=type==="followers";
+  openPanel(isFollowers?"Followers":"Following",'<p>'+ (isFollowers?"People who follow this member.":"People this member follows.") +'</p><div id="followPeopleList">Loading…</div>');
+  try{
+    const q=isFollowers
+      ? query(collectionGroup(db,"following"),where("uid","==",uid),limit(100))
+      : query(collection(db,"follows",uid,"following"),limit(100));
+    const snap=await getDocs(q);
+    const rows=await Promise.all(snap.docs.map(async edge=>{
+      const personUid=isFollowers?edge.ref.parent.parent.id:edge.id;
+      const profile=await getDoc(doc(db,"publicProfiles",personUid));
+      if(!profile.exists())return "";
+      const p=profile.data()||{},name=p.displayName||"MILOOP member";
+      return '<button class="chat-row" data-follow-profile="'+escapeHtml(personUid)+'" style="text-align:left"><span class="chat-avatar">'+escapeHtml(name.charAt(0).toUpperCase())+'</span><span class="chat-meta"><b>'+escapeHtml(name)+'</b><small>View profile</small></span><span>›</span></button>';
+    }));
+    const target=$("followPeopleList");
+    if(target)target.innerHTML=rows.filter(Boolean).join("")||'<div class="social-item">No '+(isFollowers?"followers":"following")+' yet.</div>';
+    target?.querySelectorAll("[data-follow-profile]").forEach(el=>el.onclick=()=>showMemberProfile(el.dataset.followProfile));
+  }catch(e){
+    console.error("Follow list error:",e);
+    const target=$("followPeopleList");
+    if(target)target.textContent="Could not load list: "+(e.code||e.message);
+  }
+}
+
 async function showMemberProfile(uid){
   try{
     const snap=await getDoc(doc(db,"publicProfiles",uid));
@@ -92,12 +117,19 @@ async function showMemberProfile(uid){
     openPanel(mine?"My profile":(p.displayName||"Member profile"),
       '<div style="text-align:center;padding:10px"><div class="chat-avatar" style="width:64px;height:64px;margin:auto;font-size:22px">'+escapeHtml((p.displayName||"M").charAt(0).toUpperCase())+'</div><h2>'+escapeHtml(p.displayName||"MILOOP member")+'</h2><p>'+escapeHtml(p.bio||"")+'</p></div>'+
       (mine?'<button class="action" id="editProfileDetails" style="display:block;width:100%;margin:8px 0 14px">✎ Edit profile</button><button class="action secondary" id="shareProfileLink" style="display:block;width:100%;margin:0 0 14px">↗ Share profile</button>':'<button class="action" id="messageProfile" style="display:block;width:100%;margin:8px 0 14px">Message</button>')+
-      '<div class="social-item"><b>Profile ID</b><small>'+escapeHtml(uid)+'</small></div>'+details+
+      '<div class="social-item"><b>Profile ID</b><small>'+escapeHtml(uid)+'</small></div><div id="profileFollowStats" style="display:flex;gap:8px;margin:10px 0"><button class="action secondary" id="showFollowers">Followers · …</button><button class="action secondary" id="showFollowing">Following · …</button></div>'+details+
       '<h3 style="font-size:13px">Posts</h3><div id="memberPosts">Loading…</div>');
     stopListener=onSnapshot(query(collection(db,"posts"),where("authorUid","==",uid),limit(50)),posts=>{
       const el=$("memberPosts");if(!el)return;
       el.innerHTML=posts.empty?'<div class="social-item">No posts yet.</div>':posts.docs.map(d=>'<div class="social-item"><p style="font-size:12px;color:#243653;white-space:pre-wrap">'+escapeHtml(d.data().text||"")+'</p><small>'+escapeHtml(d.data().createdAt?.toDate?.().toLocaleString()||"")+'</small></div>').join("");
     },err=>{console.error(err);if($("memberPosts"))$("memberPosts").textContent="Could not load posts: "+err.code;});
+    const followersQuery=query(collectionGroup(db,"following"),where("uid","==",uid));
+    const followingQuery=query(collection(db,"follows",uid,"following"));
+    const [followersSnap,followingSnap]=await Promise.all([getDocs(followersQuery),getDocs(followingQuery)]);
+    $("showFollowers").textContent="Followers · "+followersSnap.size;
+    $("showFollowing").textContent="Following · "+followingSnap.size;
+    $("showFollowers").onclick=()=>openFollowList(uid,"followers");
+    $("showFollowing").onclick=()=>openFollowList(uid,"following");
     if(mine){$("editProfileDetails").onclick=()=>editOwnProfile(p);$("shareProfileLink").onclick=async()=>{const url=new URL(location.href);url.search="";url.searchParams.set("profile",uid);url.hash="";try{await navigator.clipboard.writeText(url.href);toast("Profile link copied.");}catch(e){const f=document.createElement("textarea");f.value=url.href;document.body.append(f);f.select();try{document.execCommand("copy");toast("Profile link copied.");}catch(_){toast("Could not copy link.");}f.remove();}};}else $("messageProfile").onclick=()=>openChat(uid,p.displayName||"MILOOP member");
   }catch(e){console.error(e);toast("Could not open profile: "+(e.code||e.message));}
 }
