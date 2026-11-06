@@ -122,7 +122,13 @@ service cloud.firestore {
         && request.resource.data.likes.size() == 0
         && request.resource.data.likeCount == 0
         && request.resource.data.createdAt == request.time;
-      allow update: if signedIn()
+      allow update: if (signedIn() && resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 1000)
+        || (signedIn()
         && request.resource.data.authorUid == resource.data.authorUid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes','likeCount'])
         && request.resource.data.likes is list
@@ -139,7 +145,7 @@ service cloud.firestore {
            && resource.data.likes.hasAll(request.resource.data.likes)
            && resource.data.likes.hasAny([request.auth.uid])
            && !request.resource.data.likes.hasAny([request.auth.uid]))
-        );
+        ));
       allow delete: if signedIn() && resource.data.authorUid == request.auth.uid;
 
       match /comments/{commentId} {
