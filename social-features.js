@@ -163,7 +163,7 @@ handlers.allStories=()=>{
   },e=>{console.error(e);$("storiesList").textContent="Could not load stories. Publish the latest Rules.";});
 };
 
-handlers.explore=handlers.seePeople=handlers.photo=handlers.video=handlers.feeling=()=>toast("This feature is planned for a later update.");
+handlers.explore=handlers.photo=handlers.video=handlers.feeling=()=>toast("This feature is planned for a later update.");\nhandlers.seePeople=handlers.follow;
 
 handlers.follow=()=>{
   openPanel("Find and follow members",`<p>Ask a member for their Profile ID, then look up their public profile.</p><input id="memberProfileId" placeholder="Member Profile ID" autocomplete="off"><button class="action" id="lookupMember">Find member</button><div id="memberResult"></div>`);
