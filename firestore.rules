@@ -41,7 +41,12 @@ service cloud.firestore {
         && request.resource.data.displayName.size() > 0
         && request.resource.data.displayName.size() <= 60
         && request.resource.data.bio is string
-        && request.resource.data.bio.size() <= 180;
+        && request.resource.data.bio.size() <= 180
+        && (!('school' in request.resource.data) || request.resource.data.school is string)
+        && (!('dateOfBirth' in request.resource.data) || request.resource.data.dateOfBirth is string)
+        && (!('college' in request.resource.data) || request.resource.data.college is string)
+        && (!('university' in request.resource.data) || request.resource.data.university is string)
+        && (!('city' in request.resource.data) || request.resource.data.city is string);
       allow delete: if false;
     }
 
