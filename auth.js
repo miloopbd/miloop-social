@@ -122,7 +122,7 @@ form.addEventListener("submit", async event => {
       if (name.length < 2) throw new Error("Please enter your name (at least 2 characters).");
       const credential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(credential.user, { displayName: name });
-      await syncUserProfile({ ...credential.user, displayName: name });
+      await syncUserProfile(credential.user);
     } else {
       await signInWithEmailAndPassword(auth, email, password);
     }
