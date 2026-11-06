@@ -1,7 +1,7 @@
 import { auth, db } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
-  doc, getDoc, setDoc, addDoc, collection, onSnapshot, query, orderBy,
+  doc, getDoc, getDocs, setDoc, addDoc, collection, onSnapshot, query, orderBy,
   limit, where, serverTimestamp, updateDoc
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
@@ -110,10 +110,14 @@ handlers.messages=()=>{
     const members=[currentUser.uid,recipient].sort();
     const chatId=members.join("_");
     try{
-      const chatRef=doc(db,"chats",chatId);
-      const existingChat=await getDoc(chatRef);
-      if(existingChat.exists()) await updateDoc(chatRef,{updatedAt:serverTimestamp()});
-      else await setDoc(chatRef,{members,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+      const matches=await getDocs(query(collection(db,"chats"),where("members","array-contains",currentUser.uid)));
+      const existing=matches.docs.find(item=>(item.data().members||[]).includes(recipient));
+      if(existing){
+        chatId=existing.id;
+        await updateDoc(doc(db,"chats",chatId),{updatedAt:serverTimestamp()});
+      }else{
+        await setDoc(doc(db,"chats",chatId),{members,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+      }
       activeChatId=chatId;
       $("chatArea").innerHTML='<div id="chatLog" class="social-chat-log">Loading messages…</div><form id="chatSendForm"><input id="chatMessage" maxlength="1000" placeholder="Write a message…" required><button class="action" type="submit">Send</button></form>';
       if(stopChat)stopChat();
