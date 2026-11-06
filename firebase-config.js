@@ -1,7 +1,6 @@
 // Firebase Web App configuration for MILOOP.
-// Add the Web API key from Firebase Console in the apiKey field.
 export const firebaseConfig = {
-  apiKey: "ADD_FIREBASE_WEB_API_KEY",
+  apiKey: "AIzaSyDrRrhRmlfjaitmTnQHYCc-fFdnuwUc5rc",
   authDomain: "miloop-e0d3a.firebaseapp.com",
   projectId: "miloop-e0d3a",
   storageBucket: "miloop-e0d3a.firebasestorage.app",
