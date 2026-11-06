@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 const $ = id => document.getElementById(id);
@@ -19,7 +20,22 @@ const signOutButton = $("signOut");
 const openButton = $("authOpen");
 let mode = "signin";
 let auth = null;
+let db = null;
 let currentUser = null;
+
+async function syncUserProfile(user) {
+  if (!db || !user) return;
+  const profileRef = doc(db, "users", user.uid);
+  const profileSnap = await getDoc(profileRef);
+  const profileData = {
+    uid: user.uid,
+    displayName: user.displayName || "",
+    email: user.email || "",
+    updatedAt: serverTimestamp()
+  };
+  if (!profileSnap.exists()) profileData.createdAt = serverTimestamp();
+  await setDoc(profileRef, profileData, { merge: true });
+}
 
 function showError(message) { errorBox.textContent = message; }
 function setMode(next) {
@@ -106,6 +122,7 @@ form.addEventListener("submit", async event => {
       if (name.length < 2) throw new Error("Please enter your name (at least 2 characters).");
       const credential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(credential.user, { displayName: name });
+      await syncUserProfile({ ...credential.user, displayName: name });
     } else {
       await signInWithEmailAndPassword(auth, email, password);
     }
@@ -147,7 +164,14 @@ if (!configReady()) {
   try {
     const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
-    onAuthStateChanged(auth, updateAccountUI);
+    db = getFirestore(app);
+    onAuthStateChanged(auth, user => {
+      updateAccountUI(user);
+      if (user) syncUserProfile(user).catch(error => {
+        console.error("MILOOP profile sync error:", error);
+        showError("You are signed in, but your profile could not sync. Check that Firestore is enabled and its rules are published.");
+      });
+    });
   } catch (error) {
     console.error("MILOOP Firebase initialization error:", error);
     showError("Firebase could not start. Please check firebase-config.js.");
