@@ -165,7 +165,10 @@ handlers.allStories=()=>{
   },e=>{console.error(e);$("storiesList").textContent="Could not load stories. Publish the latest Rules.";});
 };
 
-handlers.explore=handlers.photo=handlers.video=handlers.feeling=()=>toast("This feature is planned for a later update.");
+handlers.explore=()=>{
+  openPanel("Explore",'<p>Discover what is happening in your MILOOP community.</p><div class="social-item"><b>#MILOOPLaunch</b><small>Community updates</small></div><div class="social-item"><b>#CreativeMinds</b><small>Ideas and creativity</small></div><div class="social-item"><b>#DailyInspiration</b><small>Positive moments</small></div><div class="social-item"><b>#TechAndIdeas</b><small>Technology and learning</small></div>');
+};
+handlers.photo=handlers.video=handlers.feeling=()=>toast("This feature is planned for a later update.");
 
 handlers.follow=()=>{
   openPanel("Find and follow members",`<p>Ask a member for their Profile ID, then look up their public profile.</p><input id="memberProfileId" placeholder="Member Profile ID" autocomplete="off"><button class="action" id="lookupMember">Find member</button><div id="memberResult"></div>`);
@@ -196,5 +199,14 @@ handlers.follow=()=>{
 
 handlers.seePeople = handlers.follow;
 
+document.querySelector(".mobile-nav")?.addEventListener("click",event=>{
+  const control=event.target.closest("[data-social-action]");
+  if(!control)return;
+  event.preventDefault();
+  event.stopPropagation();
+  const action=control.dataset.socialAction;
+  if(!needUser())return;
+  handlers[action]?.();
+});
 ["profile","messages","notifications","allStories","explore","seePeople","photo","video","feeling"].forEach(id=>button(id,id));
 onAuthStateChanged(auth,user=>{currentUser=user;});
