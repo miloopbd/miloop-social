@@ -94,7 +94,7 @@ async function showMemberProfile(uid){
       '<div class="social-item"><b>Profile ID</b><small>'+escapeHtml(uid)+'</small></div>'+details+
       '<h3 style="font-size:13px">Posts</h3><div id="memberPosts">Loading…</div>'+
       (mine?'<button class="action" id="editProfileDetails">Edit profile</button>':'<button class="action" id="messageProfile">Message</button>'));
-    stopListener=onSnapshot(query(collection(db,"posts"),where("authorUid","==",uid),orderBy("createdAt","desc"),limit(50)),posts=>{
+    stopListener=onSnapshot(query(collection(db,"posts"),where("authorUid","==",uid),limit(50)),posts=>{
       const el=$("memberPosts");if(!el)return;
       el.innerHTML=posts.empty?'<div class="social-item">No posts yet.</div>':posts.docs.map(d=>'<div class="social-item"><p style="font-size:12px;color:#243653;white-space:pre-wrap">'+escapeHtml(d.data().text||"")+'</p><small>'+escapeHtml(d.data().createdAt?.toDate?.().toLocaleString()||"")+'</small></div>').join("");
     },err=>{console.error(err);if($("memberPosts"))$("memberPosts").textContent="Could not load posts: "+err.code;});
