@@ -12,6 +12,7 @@ function toast(message) {
 function safe(value) {
   return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
+async function copyText(value){if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(value);return;}const field=document.createElement("textarea");field.value=value;field.style.position="fixed";field.style.opacity="0";document.body.append(field);field.select();const ok=document.execCommand("copy");field.remove();if(!ok)throw new Error("Copy unavailable");}
 function initials(name) { return String(name || "M").trim().split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase(); }
 function relativeTime(value) {
   if (!value?.toDate) return "just now";
@@ -29,11 +30,11 @@ function render() {
     return `<article class="post" data-id="${safe(p.id)}">
       <div class="post-head"><div class="avatar">${safe(initials(p.authorName))}</div>
       <div class="post-author"><b><button type="button" class="post-author-link" data-profile-uid="${safe(p.authorUid)}">${safe(p.authorName||"MILOOP member")}</button></b><small>${safe(relativeTime(p.createdAt))}</small></div>
-      ${mine?'<button class="post-menu" data-action="delete" aria-label="Delete your post">···</button>':""}</div>
+      ${mine?'<button class="post-menu" data-action="edit" aria-label="Edit your post">✎</button><button class="post-menu" data-action="delete" aria-label="Delete your post">×</button>':""}</div>
       <p class="post-text">${safe(p.text)}</p>
       <div class="stats"><span>♥ ${Number(p.likeCount)||0} likes</span></div>
       <div class="post-actions"><button data-action="like" class="${liked?"liked":""}" ${currentUser?"":"disabled"}><span>${liked?"♥":"♡"}</span>Like</button>
-      <button data-action="comment"><span>▢</span>Comment</button><button data-action="share"><span>↗</span>Share</button></div>
+      <button data-action="comment"><span>▢</span>Comment</button><button data-action="share"><span>↗</span>Share</button><button data-action="copy-link"><span>🔗</span>Copy link</button></div>
     </article>`;
   }).join("") : '<article class="post"><p class="post-text">No posts yet. Be the first to share something!</p></article>';
 }
@@ -105,12 +106,13 @@ $("posts").addEventListener("click",async e=>{
       if(!currentUser){$("authOpen").click();return;}
       const liked=(p.likes||[]).includes(currentUser.uid);
       await updateDoc(doc(db,"posts",p.id),{likes:liked?arrayRemove(currentUser.uid):arrayUnion(currentUser.uid),likeCount:Math.max(0,(p.likeCount||0)+(liked?-1:1))});
+    } else if(b.dataset.action==="edit" && p.authorUid===currentUser?.uid){
+      const edited=window.prompt("Edit your post",p.text);if(edited===null)return;if(!edited.trim()){toast("Post cannot be empty.");return;}await updateDoc(doc(db,"posts",p.id),{text:edited.trim().slice(0,1000)});toast("Post updated.");
     } else if(b.dataset.action==="delete" && p.authorUid===currentUser?.uid){
       if(confirm("Delete this post?")){await deleteDoc(doc(db,"posts",p.id));}
-    } else if(b.dataset.action==="share"){
-      const shareText=p.text;
-      if(navigator.share) await navigator.share({title:"MILOOP post",text:shareText});
-      else if(navigator.clipboard){await navigator.clipboard.writeText(shareText);toast("Post text copied.");}
+    } else if(b.dataset.action==="share" || b.dataset.action==="copy-link"){
+      const url=new URL(location.href);url.search="";url.searchParams.set("post",p.id);url.hash="";
+      if(b.dataset.action==="share"&&navigator.share)await navigator.share({title:"MILOOP post",text:p.text,url:url.href});else{await copyText(url.href);toast("Post link copied.");}
     } else if(b.dataset.action==="comment") openComments(p);
   } catch(error){if(error.name!=="AbortError"){console.error(error);toast("Action failed. Please try again.");}}
 });
@@ -122,4 +124,5 @@ $("invite").addEventListener("click",async()=>{
 onAuthStateChanged(auth,user=>{currentUser=user;render();});
 stopPosts=onSnapshot(query(collection(db,"posts"),orderBy("createdAt","desc")),snapshot=>{
   posts=snapshot.docs.map(d=>({id:d.id,...d.data()})); render();
+  const targetPost=new URLSearchParams(location.search).get("post");if(targetPost){const card=[...document.querySelectorAll("[data-id]")].find(el=>el.dataset.id===targetPost);if(card){card.scrollIntoView({behavior:"smooth",block:"center"});card.style.outline="3px solid #155eef";card.style.outlineOffset="3px";}}
 },error=>{console.error("MILOOP posts listener:",error);toast("Could not load posts. Check Firestore rules.");});
