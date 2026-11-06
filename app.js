@@ -1,0 +1,27 @@
+const initialPosts=[
+{id:1,name:"Sanjid Khan",handle:"@sanjid.k",initials:"SK",time:"18 min ago",text:"A new space for ideas, creativity, and genuine connections. Excited to see what we build together. Welcome to the loop! ✨",likes:128,comments:24,shares:8,art:"HELLO, MILOOP",liked:false},
+{id:2,name:"Umma Salma",handle:"@umma.s",initials:"US",time:"1 hour ago",text:"Small steps every day can lead to wonderful places. Keep learning, keep creating, and keep being curious. 💙",likes:86,comments:12,shares:5,liked:false},
+{id:3,name:"Mahbub Alam",handle:"@mahbub.a",initials:"MA",time:"3 hours ago",text:"What is one skill you would love to learn this year? I’m collecting ideas and looking for inspiration!",likes:53,comments:19,shares:3,liked:false}
+];
+let posts=[...initialPosts],toastTimer;
+const $=id=>document.getElementById(id), dialog=$("postDialog"), textarea=$("postText");
+function toast(message){const el=$("toast");el.textContent=message;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),2300)}
+function safe(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function render(){
+ const q=$("search").value.trim().toLowerCase(),sort=$("sort").value;
+ let list=posts.filter(p=>(p.text+" "+p.name+" "+p.handle).toLowerCase().includes(q));
+ list.sort((a,b)=>sort==="popular"?b.likes-a.likes:b.id-a.id);
+ $("posts").innerHTML=list.length?list.map(p=>`<article class="post" data-id="${p.id}"><div class="post-head"><div class="avatar">${safe(p.initials)}</div><div class="post-author"><b>${safe(p.name)}</b><small>${safe(p.handle)} · ${safe(p.time)}</small></div><button class="post-menu" data-action="menu" aria-label="More options">···</button></div><p class="post-text">${safe(p.text)}</p>${p.art?`<div class="post-art">${safe(p.art)}</div>`:""}<div class="stats"><span>♥ ${p.likes} likes</span><span>${p.comments} comments · ${p.shares} shares</span></div><div class="post-actions"><button data-action="like" class="${p.liked?"liked":""}"><span>${p.liked?"♥":"♡"}</span>Like</button><button data-action="comment"><span>▢</span>Comment</button><button data-action="share"><span>↗</span>Share</button></div></article>`).join(""):'<article class="post"><p class="post-text">No posts found. Try another search.</p></article>';
+}
+function openPost(){textarea.value="";$("counter").textContent="0 / 1000";dialog.showModal();textarea.focus()}
+document.querySelectorAll("[data-open-post]").forEach(b=>b.addEventListener("click",openPost));
+$("closeDialog").addEventListener("click",()=>dialog.close());
+textarea.addEventListener("input",()=>$("counter").textContent=textarea.value.length+" / 1000");
+$("postForm").addEventListener("submit",e=>{e.preventDefault();const text=textarea.value.trim();if(!text){toast("Write something before publishing.");return}posts.unshift({id:Date.now(),name:"Imran",handle:"@imran",initials:"I",time:"just now",text,likes:0,comments:0,shares:0,liked:false});render();dialog.close();toast("Your post is now in your loop!")});
+$("search").addEventListener("input",render);$("sort").addEventListener("change",render);
+$("posts").addEventListener("click",e=>{const b=e.target.closest("[data-action]");if(!b)return;const card=b.closest("[data-id]"),p=posts.find(x=>x.id===Number(card.dataset.id));if(!p)return;switch(b.dataset.action){case"like":p.liked=!p.liked;p.likes+=p.liked?1:-1;render();break;case"comment":toast("Comments are planned for a future update.");break;case"share":if(navigator.share)navigator.share({title:"MILOOP post",text:p.text}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(p.text).then(()=>toast("Post text copied."));else toast("Sharing is not available in this browser.");break;case"menu":toast("More post options are coming soon.");}});
+document.querySelectorAll(".follow").forEach(b=>b.addEventListener("click",()=>{const on=b.classList.toggle("following");b.textContent=on?"Following":"Follow";toast(on?"You’re now following this person.":"You unfollowed this person.")}));
+$("notifications").addEventListener("click",()=>toast("You’re all caught up on notifications."));$("messages").addEventListener("click",()=>toast("Messaging is planned for a future update."));$("profile").addEventListener("click",()=>toast("Profile pages are coming soon."));
+$("allStories").addEventListener("click",()=>toast("More stories will appear here."));$("photo").addEventListener("click",()=>toast("Photo uploads will be added with secure storage."));$("video").addEventListener("click",()=>toast("Video uploads will be added with secure storage."));$("feeling").addEventListener("click",()=>toast("Feeling options are coming soon."));$("explore").addEventListener("click",()=>toast("Explore is coming soon."));$("seePeople").addEventListener("click",()=>toast("More suggestions are coming soon."));
+$("invite").addEventListener("click",()=>{if(navigator.share)navigator.share({title:"Join me on MILOOP",text:"Connect. Share. Belong.",url:location.href}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(location.href).then(()=>toast("Page link copied."));else toast("Copy this page address to invite a friend.")});
+render();
