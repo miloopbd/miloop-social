@@ -293,4 +293,4 @@ document.querySelector(".mobile-nav")?.addEventListener("click",event=>{
   handlers[action]?.();
 });
 ["profile","messages","notifications","allStories","explore","seePeople","photo","video","feeling"].forEach(button);
-onAuthStateChanged(auth,user=>{currentUser=user;});
+onAuthStateChanged(auth,async user=>{currentUser=user;if(user){try{await ensurePublicProfile(user);}catch(e){console.error("Public profile sync failed:",e);}}});
