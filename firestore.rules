@@ -43,6 +43,7 @@ service cloud.firestore {
                         request.resource.data.likes.size() == resource.data.likes.size() + 1
                         && request.resource.data.likes.hasAll(resource.data.likes)
                         && request.resource.data.likes.hasAny([request.auth.uid])
+                        && !resource.data.likes.hasAny([request.auth.uid])
                       )
                       ||
                       (
