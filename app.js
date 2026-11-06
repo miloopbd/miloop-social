@@ -94,7 +94,7 @@ $("postForm").addEventListener("submit",async e=>{
   try {
     await addDoc(collection(db,"posts"),{authorUid:currentUser.uid,authorName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",text,createdAt:serverTimestamp(),likes:[],likeCount:0});
     dialog.close(); toast("Your post is now in your loop!");
-  } catch(error){console.error(error);toast("Could not publish. Check your Firestore rules.");}
+  } catch(error){console.error("MILOOP post publish error:",error);toast("Post failed: "+(error.code||error.message||"unknown error"));}
   finally{if(button)button.disabled=false;}
 });
 $("search").addEventListener("input",render); $("sort").addEventListener("change",render);
