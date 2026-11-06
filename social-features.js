@@ -18,7 +18,7 @@ panel.innerHTML = '<div class="social-panel-head"><h2 id="socialPanelTitle">MILO
 document.body.append(panel);
 
 const styles = document.createElement("style");
-styles.textContent = \`
+styles.textContent = `
 .social-panel{display:none;position:fixed;z-index:40;right:16px;top:82px;width:min(470px,calc(100vw - 24px));max-height:82vh;overflow:auto;background:#fff;border:1px solid #e4eaf4;border-radius:16px;box-shadow:0 18px 60px #14264a30;padding:18px}
 .social-panel.open{display:block}.social-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .social-panel-head h2{font-size:16px;margin:0;color:#17233d}.social-panel-head button{border:0;border-radius:50%;width:30px;height:30px;background:#f1f4fa;font-size:20px;color:#71809a}
@@ -34,7 +34,7 @@ styles.textContent = \`
 .chat-row .chat-meta{min-width:0;flex:1}.chat-row b{font-size:11px;color:#243653}.chat-row small{display:block;color:#8995a8;font-size:9px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .member-result{border:1px solid #e8edf5;border-radius:10px;padding:10px;margin:8px 0}.chat-send{display:flex;gap:7px;align-items:center}.chat-send input{flex:1;min-width:0}.chat-send button{flex:none}
 @media(max-width:700px){.social-panel{top:68px;right:8px;width:calc(100vw - 16px);max-height:82vh;padding:14px}.social-chat-log{height:42vh}}
-\`;
+`;
 document.head.append(styles);
 
 function toast(message){
