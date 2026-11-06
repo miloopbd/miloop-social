@@ -28,7 +28,7 @@ function render() {
     const mine = currentUser && p.authorUid===currentUser.uid;
     return `<article class="post" data-id="${safe(p.id)}">
       <div class="post-head"><div class="avatar">${safe(initials(p.authorName))}</div>
-      <div class="post-author"><b>${safe(p.authorName||"MILOOP member")}</b><small>${safe(relativeTime(p.createdAt))}</small></div>
+      <div class="post-author"><b><button type="button" class="post-author-link" data-profile-uid="${safe(p.authorUid)}">${safe(p.authorName||"MILOOP member")}</button></b><small>${safe(relativeTime(p.createdAt))}</small></div>
       ${mine?'<button class="post-menu" data-action="delete" aria-label="Delete your post">···</button>':""}</div>
       <p class="post-text">${safe(p.text)}</p>
       <div class="stats"><span>♥ ${Number(p.likeCount)||0} likes</span></div>
