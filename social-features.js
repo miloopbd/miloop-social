@@ -199,7 +199,17 @@ async function openChat(otherUid,otherName){
       const send=e.submitter;if(send)send.disabled=true;
       try{
         await addDoc(messagesRef,{uid:currentUser.uid,text,createdAt:serverTimestamp()});
-        await updateDoc(chatRef,{updatedAt:serverTimestamp()});input.value="";
+        await updateDoc(chatRef,{updatedAt:serverTimestamp()});
+        const chatData=(await getDoc(chatRef)).data();
+        const recipientUid=(chatData.members||[]).find(uid=>uid!==currentUser.uid);
+        if(recipientUid){
+          await addDoc(collection(db,"users",recipientUid,"notifications"),{
+            type:"message",fromUid:currentUser.uid,toUid:recipientUid,chatId,
+            text:(currentUser.displayName||"A member")+" sent you a message.",
+            createdAt:serverTimestamp(),read:false
+          });
+        }
+        input.value="";
       }catch(err){console.error("MILOOP message send error:",err);toast("Message failed: "+(err.code||err.message||"unknown error"));}
       finally{if(send)send.disabled=false;}
     };
