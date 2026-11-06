@@ -4,7 +4,7 @@ import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, u
 
 const $ = id => document.getElementById(id);
 const dialog = $("postDialog"), textarea = $("postText");
-let currentUser = null, posts = [], stopPosts = null, toastTimer;
+let currentUser = null, posts = [], stopPosts = null, stopComments = null, activePostId = null, toastTimer;
 function toast(message) {
   const el = $("toast"); el.textContent = message; el.classList.add("show");
   clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 2500);
@@ -33,10 +33,51 @@ function render() {
       <p class="post-text">${safe(p.text)}</p>
       <div class="stats"><span>♥ ${Number(p.likeCount)||0} likes</span></div>
       <div class="post-actions"><button data-action="like" class="${liked?"liked":""}" ${currentUser?"":"disabled"}><span>${liked?"♥":"♡"}</span>Like</button>
-      <button data-action="comment" disabled><span>▢</span>Comment</button><button data-action="share"><span>↗</span>Share</button></div>
+      <button data-action="comment"><span>▢</span>Comment</button><button data-action="share"><span>↗</span>Share</button></div>
     </article>`;
   }).join("") : '<article class="post"><p class="post-text">No posts yet. Be the first to share something!</p></article>';
 }
+
+const commentsDialog = $("commentsDialog");
+const commentForm = $("commentForm");
+const commentText = $("commentText");
+function openComments(post) {
+  activePostId = post.id;
+  $("commentsTitle").textContent = "Comments";
+  $("commentsList").innerHTML = '<p class="comment-empty">Loading comments…</p>';
+  commentText.value = "";
+  commentsDialog.showModal();
+  if(stopComments) stopComments();
+  stopComments = onSnapshot(query(collection(db,"posts",post.id,"comments"),orderBy("createdAt","asc")),snap=>{
+    $("commentsList").innerHTML = snap.empty ? '<p class="comment-empty">No comments yet. Start the conversation.</p>' : snap.docs.map(d=>{
+      const c=d.data(), own=currentUser && currentUser.uid===c.uid;
+      return `<div class="comment-item"><div class="comment-avatar">${safe(initials(c.displayName))}</div><div class="comment-body"><b>${safe(c.displayName||"MILOOP member")}</b><p>${safe(c.text)}</p><small>${safe(relativeTime(c.createdAt))}</small></div>${own?`<button type="button" class="comment-delete" data-comment-delete="${safe(d.id)}">Delete</button>`:""}</div>`;
+    }).join("");
+  },err=>{console.error(err);$("commentsList").innerHTML='<p class="comment-empty">Could not load comments.</p>';});
+}
+$("closeComments").addEventListener("click",()=>{commentsDialog.close();if(stopComments){stopComments();stopComments=null;}});
+commentForm.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!currentUser){$("authOpen").click();return;}
+  const text=commentText.value.trim();
+  if(!text || !activePostId)return;
+  const submit=e.submitter;if(submit)submit.disabled=true;
+  try{
+    await addDoc(collection(db,"posts",activePostId,"comments"),{
+      uid:currentUser.uid,
+      displayName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",
+      text,createdAt:serverTimestamp()
+    });
+    commentText.value="";
+  }catch(err){console.error(err);toast("Could not add comment. Check Firestore Rules.");}
+  finally{if(submit)submit.disabled=false;}
+});
+$("commentsList").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-comment-delete]");if(!b||!activePostId)return;
+  try{await deleteDoc(doc(db,"posts",activePostId,"comments",b.dataset.commentDelete));}
+  catch(err){console.error(err);toast("Could not delete comment.");}
+});
+
 function openPost() {
   if(!currentUser){$("authOpen").click();toast("Sign in before creating a post.");return;}
   textarea.value=""; $("counter").textContent="0 / 1000"; dialog.showModal(); textarea.focus();
@@ -70,7 +111,7 @@ $("posts").addEventListener("click",async e=>{
       const shareText=p.text;
       if(navigator.share) await navigator.share({title:"MILOOP post",text:shareText});
       else if(navigator.clipboard){await navigator.clipboard.writeText(shareText);toast("Post text copied.");}
-    } else if(b.dataset.action==="comment") toast("Comments are coming in the next update.");
+    } else if(b.dataset.action==="comment") openComments(p);
   } catch(error){if(error.name!=="AbortError"){console.error(error);toast("Action failed. Please try again.");}}
 });
 $("notifications").addEventListener("click",()=>toast("Notifications are coming soon."));
