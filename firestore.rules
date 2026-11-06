@@ -51,7 +51,8 @@ service cloud.firestore {
     }
 
     match /follows/{followerUid}/following/{targetUid} {
-      allow read: if signedIn() && request.auth.uid == followerUid;
+      // Signed-in members can view follower/following lists; only the owner can change their following list.
+      allow read: if signedIn();
       allow create: if signedIn() && request.auth.uid == followerUid
         && targetUid != followerUid
         && request.resource.data.uid == targetUid;
