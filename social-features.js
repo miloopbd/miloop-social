@@ -111,7 +111,9 @@ handlers.messages=()=>{
     const chatId=members.join("_");
     try{
       const chatRef=doc(db,"chats",chatId);
-      const existingChat=await getDoc(chatRef);\n      if(existingChat.exists()) await updateDoc(chatRef,{updatedAt:serverTimestamp()});\n      else await setDoc(chatRef,{members,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+      const existingChat=await getDoc(chatRef);
+      if(existingChat.exists()) await updateDoc(chatRef,{updatedAt:serverTimestamp()});
+      else await setDoc(chatRef,{members,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
       activeChatId=chatId;
       $("chatArea").innerHTML='<div id="chatLog" class="social-chat-log">Loading messages…</div><form id="chatSendForm"><input id="chatMessage" maxlength="1000" placeholder="Write a message…" required><button class="action" type="submit">Send</button></form>';
       if(stopChat)stopChat();
@@ -163,7 +165,7 @@ handlers.allStories=()=>{
   },e=>{console.error(e);$("storiesList").textContent="Could not load stories. Publish the latest Rules.";});
 };
 
-handlers.explore=handlers.photo=handlers.video=handlers.feeling=()=>toast("This feature is planned for a later update.");\nhandlers.seePeople=handlers.follow;
+handlers.explore=handlers.photo=handlers.video=handlers.feeling=()=>toast("This feature is planned for a later update.");
 
 handlers.follow=()=>{
   openPanel("Find and follow members",`<p>Ask a member for their Profile ID, then look up their public profile.</p><input id="memberProfileId" placeholder="Member Profile ID" autocomplete="off"><button class="action" id="lookupMember">Find member</button><div id="memberResult"></div>`);
@@ -172,7 +174,8 @@ handlers.follow=()=>{
     try{
       const snap=await getDoc(doc(db,"publicProfiles",uid));
       if(!snap.exists()){$("memberResult").textContent="Profile not found.";return;}
-      const p=snap.data(),followRef=doc(db,"follows",currentUser.uid,"following",uid);\n      let isFollowing=(await getDoc(followRef)).exists();
+      const p=snap.data(),followRef=doc(db,"follows",currentUser.uid,"following",uid);
+      let isFollowing=(await getDoc(followRef)).exists();
       $("memberResult").innerHTML=`<div class="social-item"><b>${escapeHtml(p.displayName||"MILOOP member")}</b><p>${escapeHtml(p.bio||"No bio yet.")}</p><small>Profile ID: ${escapeHtml(uid)}</small><button class="action" id="toggleFollow">${isFollowing?"Unfollow":"Follow"}</button></div>`;
       $("toggleFollow").onclick=async()=>{
         try{
@@ -190,6 +193,8 @@ handlers.follow=()=>{
     }catch(e){console.error(e);toast("Could not find member. Check Rules.");}
   };
 };
+
+handlers.seePeople = handlers.follow;
 
 ["profile","messages","notifications","allStories","explore","seePeople","photo","video","feeling"].forEach(id=>button(id,id));
 onAuthStateChanged(auth,user=>{currentUser=user;});
