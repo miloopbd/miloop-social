@@ -81,7 +81,16 @@ service cloud.firestore {
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 1000
           && request.resource.data.createdAt == request.time;
-        allow update, delete: if false;
+        allow update: if isChatMember(chatId)
+          && resource.data.uid == request.auth.uid
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 1000
+          && request.resource.data.edited == true
+          && request.resource.data.editedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','edited','editedAt']);
+        allow delete: if isChatMember(chatId) && resource.data.uid == request.auth.uid;
       }
     }
 
