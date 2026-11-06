@@ -1,7 +1,6 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { auth, db } from "./firebase.js";
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js";
 
 const $ = id => document.getElementById(id);
 const dialog = $("authDialog");
@@ -19,8 +18,6 @@ const switchButton = $("authSwitch");
 const signOutButton = $("signOut");
 const openButton = $("authOpen");
 let mode = "signin";
-let auth = null;
-let db = null;
 let currentUser = null;
 
 async function syncUserProfile(user) {
@@ -110,7 +107,7 @@ switchButton.addEventListener("click", () => {
 });
 form.addEventListener("submit", async event => {
   event.preventDefault();
-  if (!auth) { showError("Firebase is not configured yet. Add your Firebase Web App settings to firebase-config.js."); return; }
+  
   submit.disabled = true;
   submit.textContent = mode === "signup" ? "Creating account…" : "Signing in…";
   showError("");
@@ -137,7 +134,7 @@ form.addEventListener("submit", async event => {
   }
 });
 signOutButton.addEventListener("click", async () => {
-  if (!auth) return;
+  
   try {
     await signOut(auth);
     dialog.close();
@@ -156,24 +153,10 @@ document.querySelectorAll("[data-open-post]").forEach(button => button.addEventL
   }
 }, true));
 
-if (!configReady()) {
-  openButton.title = "Firebase setup required";
-  showError("Firebase setup required.");
-  console.warn("MILOOP: add your Firebase Web App config to firebase-config.js to enable authentication.");
-} else {
-  try {
-    const app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    onAuthStateChanged(auth, user => {
-      updateAccountUI(user);
-      if (user) syncUserProfile(user).catch(error => {
-        console.error("MILOOP profile sync error:", error);
-        showError("You are signed in, but your profile could not sync. Check that Firestore is enabled and its rules are published.");
-      });
-    });
-  } catch (error) {
-    console.error("MILOOP Firebase initialization error:", error);
-    showError("Firebase could not start. Please check firebase-config.js.");
-  }
-}
+onAuthStateChanged(auth, user => {
+  updateAccountUI(user);
+  if (user) syncUserProfile(user).catch(error => {
+    console.error("MILOOP profile sync error:", error);
+    showError("You are signed in, but your profile could not sync. Check Firestore and its rules.");
+  });
+});
