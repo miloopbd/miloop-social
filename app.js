@@ -1,7 +1,6 @@
-import { auth, db, storage } from "./firebase.js";
+import { auth, db } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { collection, addDoc, setDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
 
 const $ = id => document.getElementById(id);
 const dialog = $("postDialog"), textarea = $("postText");
@@ -107,7 +106,7 @@ $("posts").addEventListener("click",async e=>{
       const liked=(p.likes||[]).includes(currentUser.uid);
       await updateDoc(doc(db,"posts",p.id),{likes:liked?arrayRemove(currentUser.uid):arrayUnion(currentUser.uid),likeCount:Math.max(0,(p.likeCount||0)+(liked?-1:1))});
     } else if(b.dataset.action==="delete" && p.authorUid===currentUser?.uid){
-      if(confirm("Delete this post?")){if(p.mediaPath){try{await deleteObject(storageRef(storage,p.mediaPath));}catch(mediaError){console.warn("Media cleanup failed:",mediaError);}}await deleteDoc(doc(db,"posts",p.id));}
+      if(confirm("Delete this post?")){await deleteDoc(doc(db,"posts",p.id));}
     } else if(b.dataset.action==="share"){
       const shareText=p.text;
       if(navigator.share) await navigator.share({title:"MILOOP post",text:shareText});
