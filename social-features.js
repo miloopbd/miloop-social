@@ -108,15 +108,18 @@ handlers.messages=()=>{
     const recipient=$("chatRecipient").value.trim();
     if(!recipient||recipient===currentUser.uid){toast("Enter another member's valid Profile ID.");return;}
     const members=[currentUser.uid,recipient].sort();
-    const chatId=members.join("_");
+    let chatId=members.join("_");
+    let chatRef;
     try{
       const matches=await getDocs(query(collection(db,"chats"),where("members","array-contains",currentUser.uid)));
       const existing=matches.docs.find(item=>(item.data().members||[]).includes(recipient));
       if(existing){
         chatId=existing.id;
-        await updateDoc(doc(db,"chats",chatId),{updatedAt:serverTimestamp()});
+        chatRef=doc(db,"chats",chatId);
+        await updateDoc(chatRef,{updatedAt:serverTimestamp()});
       }else{
-        await setDoc(doc(db,"chats",chatId),{members,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+        chatRef=doc(db,"chats",chatId);
+        await setDoc(chatRef,{members,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
       }
       activeChatId=chatId;
       $("chatArea").innerHTML='<div id="chatLog" class="social-chat-log">Loading messages…</div><form id="chatSendForm"><input id="chatMessage" maxlength="1000" placeholder="Write a message…" required><button class="action" type="submit">Send</button></form>';
@@ -134,9 +137,9 @@ handlers.messages=()=>{
           await addDoc(collection(db,"chats",chatId,"messages"),{uid:currentUser.uid,text,createdAt:serverTimestamp()});
           await updateDoc(chatRef,{updatedAt:serverTimestamp()});
           $("chatMessage").value="";
-        }catch(err){console.error(err);toast("Message could not be sent.");}
+        }catch(err){console.error("MILOOP message send error:",err);toast("Message failed: "+(err.code||err.message||"unknown error"));}
       };
-    }catch(e){console.error(e);toast("Could not open this chat. Check the member ID and Rules.");}
+    }catch(e){console.error("MILOOP chat open error:",e);toast("Could not open chat: "+(e.code||e.message||"unknown error"));}
   };
 };
 
