@@ -82,28 +82,50 @@ async function ensurePublicProfile(user){
   }
 }
 
-handlers.profile=async()=>{
+async function showMemberProfile(uid){
   try{
-    await ensurePublicProfile(currentUser);
-    const ref=doc(db,"publicProfiles",currentUser.uid);
-    const snap=await getDoc(ref),p=snap.data()||{};
-    openPanel("My public profile",'<p>Your profile is visible to signed-in MILOOP members. Your email is not shown.</p>'+
-      '<label>Display name<input id="profileName" maxlength="60" value="'+escapeHtml(p.displayName||"")+'" placeholder="Your display name"></label>'+
-      '<label>Bio<textarea id="profileBio" maxlength="180" placeholder="A little about you…">'+escapeHtml(p.bio||"")+'</textarea></label>'+
-      '<div class="social-item"><b>Your profile ID</b><small>'+escapeHtml(currentUser.uid)+'</small></div>'+
-      '<button class="action" id="savePublicProfile">Save profile</button><button class="action secondary" id="copyProfileId">Copy profile ID</button>');
-    $("savePublicProfile").onclick=async()=>{
-      const displayName=$("profileName").value.trim(),bio=$("profileBio").value.trim();
-      if(!displayName){toast("Display name is required.");return;}
-      try{
-        await updateDoc(ref,{displayName:displayName.slice(0,60),bio:bio.slice(0,180),updatedAt:serverTimestamp()});
-        await (await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js")).updateProfile(currentUser,{displayName});
-        toast("Profile updated.");
-      }catch(e){console.error(e);toast("Could not save profile: "+(e.code||e.message));}
-    };
-    $("copyProfileId").onclick=async()=>{try{await navigator.clipboard.writeText(currentUser.uid);toast("Profile ID copied.");}catch(e){toast("Copy is unavailable in this browser.");}};
+    const snap=await getDoc(doc(db,"publicProfiles",uid));
+    if(!snap.exists()){toast("Profile not found.");return;}
+    const p=snap.data()||{},mine=currentUser.uid===uid;
+    const fields=[["School","school"],["Date of birth","dateOfBirth"],["College","college"],["University","university"],["City","city"]];
+    const details=fields.filter(x=>p[x[1]]).map(x=>'<div class="social-item"><b>'+x[0]+'</b><small>'+escapeHtml(p[x[1]])+'</small></div>').join("");
+    openPanel(mine?"My profile":(p.displayName||"Member profile"),
+      '<div style="text-align:center;padding:10px"><div class="chat-avatar" style="width:64px;height:64px;margin:auto;font-size:22px">'+escapeHtml((p.displayName||"M").charAt(0).toUpperCase())+'</div><h2>'+escapeHtml(p.displayName||"MILOOP member")+'</h2><p>'+escapeHtml(p.bio||"")+'</p></div>'+
+      '<div class="social-item"><b>Profile ID</b><small>'+escapeHtml(uid)+'</small></div>'+details+
+      '<h3 style="font-size:13px">Posts</h3><div id="memberPosts">Loading…</div>'+
+      (mine?'<button class="action" id="editProfileDetails">Edit profile</button>':'<button class="action" id="messageProfile">Message</button>'));
+    stopListener=onSnapshot(query(collection(db,"posts"),where("authorUid","==",uid),orderBy("createdAt","desc"),limit(50)),posts=>{
+      const el=$("memberPosts");if(!el)return;
+      el.innerHTML=posts.empty?'<div class="social-item">No posts yet.</div>':posts.docs.map(d=>'<div class="social-item"><p style="font-size:12px;color:#243653;white-space:pre-wrap">'+escapeHtml(d.data().text||"")+'</p><small>'+escapeHtml(d.data().createdAt?.toDate?.().toLocaleString()||"")+'</small></div>').join("");
+    },err=>{console.error(err);if($("memberPosts"))$("memberPosts").textContent="Could not load posts: "+err.code;});
+    if(mine)$("editProfileDetails").onclick=()=>editOwnProfile(p);
+    else $("messageProfile").onclick=()=>openChat(uid,p.displayName||"MILOOP member");
   }catch(e){console.error(e);toast("Could not open profile: "+(e.code||e.message));}
-};
+}
+function editOwnProfile(p){
+  const fields=[["School","school"],["Date of birth","dateOfBirth"],["College","college"],["University","university"],["City","city"]];
+  openPanel("Edit profile",'<p>All fields are optional. Leave any field blank if you prefer not to share it.</p>'+
+    '<label>Display name<input id="profileName" maxlength="60" value="'+escapeHtml(p.displayName||"")+'"></label>'+
+    '<label>Bio<textarea id="profileBio" maxlength="180">'+escapeHtml(p.bio||"")+'</textarea></label>'+
+    fields.map(x=>'<label>'+x[0]+'<input id="profile_'+x[1]+'" '+(x[1]==="dateOfBirth"?'type="date"':'type="text"')+' maxlength="100" value="'+escapeHtml(p[x[1]]||"")+'"></label>').join("")+
+    '<button class="action" id="savePublicProfile">Save profile</button><button class="action secondary" id="cancelProfileEdit">Cancel</button>');
+  $("cancelProfileEdit").onclick=()=>showMemberProfile(currentUser.uid);
+  $("savePublicProfile").onclick=async()=>{
+    const name=$("profileName").value.trim();if(!name){toast("Display name is required.");return;}
+    const data={displayName:name.slice(0,60),bio:$("profileBio").value.trim().slice(0,180),updatedAt:serverTimestamp()};
+    fields.forEach(x=>data[x[1]]=$("profile_"+x[1]).value.trim().slice(0,100));
+    try{
+      await updateDoc(doc(db,"publicProfiles",currentUser.uid),data);
+      await (await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js")).updateProfile(currentUser,{displayName:name});
+      toast("Profile saved.");showMemberProfile(currentUser.uid);
+    }catch(e){console.error(e);toast("Could not save profile: "+(e.code||e.message));}
+  };
+}
+handlers.profile=async()=>{try{await ensurePublicProfile(currentUser);await showMemberProfile(currentUser.uid);}catch(e){console.error(e);toast("Could not open profile: "+e.code);}};
+document.addEventListener("click",event=>{
+  const el=event.target.closest("[data-profile-uid]");if(!el)return;
+  event.preventDefault();event.stopPropagation();if(needUser())showMemberProfile(el.dataset.profileUid);
+},true);
 
 async function getOrCreateChat(otherUid){
   if(!otherUid||otherUid===currentUser.uid)throw new Error("Choose another member.");
