@@ -114,11 +114,8 @@ $("posts").addEventListener("click",async e=>{
     } else if(b.dataset.action==="comment") openComments(p);
   } catch(error){if(error.name!=="AbortError"){console.error(error);toast("Action failed. Please try again.");}}
 });
-$("notifications").addEventListener("click",()=>toast("Notifications are coming soon."));
-$("messages").addEventListener("click",()=>toast("Messaging is coming soon."));
-$("profile").addEventListener("click",()=>toast("Profile pages are coming soon."));
-$("allStories").addEventListener("click",()=>toast("Stories are coming soon."));
-["photo","video","feeling","explore","seePeople"].forEach(id=>$(id)?.addEventListener("click",()=>toast("This feature is coming soon.")));
+// Profile, messages, notifications, stories and discovery are handled by social-features.js.
+// Keep placeholder click handlers out of this file so they cannot override real feature panels.
 $("invite").addEventListener("click",async()=>{
   try{if(navigator.share)await navigator.share({title:"Join me on MILOOP",text:"Connect. Share. Belong.",url:location.href});else{await navigator.clipboard.writeText(location.href);toast("Page link copied.");}}catch(e){if(e.name!=="AbortError")toast("Could not share right now.");}
 });
