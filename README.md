@@ -38,7 +38,7 @@ Responsive social community built with HTML, CSS, JavaScript modules and Firebas
 Publish the updated `firestore.rules` in Firebase Console → Firestore Database → Rules. The Community Hub is loaded from `community-hub.js`. Some features require signed-in users. Birthday sharing is optional; users can remove it at any time.
 
 ## Not implemented yet
-Media uploads, stories, follow graph, public profile pages, private/group messaging, notifications, saved posts, reporting, blocking, and admin moderation are future milestones. Do not treat demo UI elements as working features.
+Media uploads, reporting, blocking, admin moderation, and mobile push notifications are future milestones. Do not treat demo UI elements as working features.
 
 ## Hosting
 GitHub Pages can serve this static project over HTTPS. Firebase domain authorization must include the deployed host.
