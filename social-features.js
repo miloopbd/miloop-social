@@ -403,7 +403,7 @@ onAuthStateChanged(auth,async user=>{currentUser=user;if(user){try{await ensureP
 // Account settings: profile, password reset, appearance and sign out.
 handlers.settings=()=>{
   const theme=localStorage.getItem("miloop-theme")||"light";
-  openPanel("Settings",'<div class="settings-section"><h3>Account</h3><div class="social-item"><b>Signed in as</b><small>'+escapeHtml(currentUser?.email||"Email unavailable")+'</small></div><button class="action" id="settingsEditProfile">✎ Edit profile details</button><button class="action secondary" id="settingsPasswordReset">Send password reset email</button></div><div class="settings-section"><h3>Appearance</h3><p>Choose how MILOOP looks on this device.</p><label class="settings-choice"><span>Light mode</span><input type="radio" name="miloopTheme" value="light" '+(theme==="light"?"checked":"")+'></label><label class="settings-choice"><span>Dark mode</span><input type="radio" name="miloopTheme" value="dark" '+(theme==="dark"?"checked":"")+'></label></div><div class="settings-section"><h3>Privacy & safety</h3><p>Your full date of birth should remain private. Only profile fields you choose to share are shown to other signed-in members. Avoid posting personal contact details publicly.</p><button class="action secondary" id="settingsPrivacyProfile">Review profile visibility</button></div><div class="settings-section"><h3>Session</h3><p>Sign out of MILOOP on this device.</p><button class="action settings-signout" id="settingsSignOut">Sign out</button></div>');
+  openPanel("Settings",'<div class="settings-layout"><div class="settings-section"><h3>Account</h3><div class="social-item"><b>Signed in as</b><small>'+escapeHtml(currentUser?.email||"Email unavailable")+'</small></div><button class="action" id="settingsEditProfile">✎ Edit profile details</button><button class="action secondary" id="settingsPasswordReset">Send password reset email</button></div><div class="settings-section"><h3>Appearance</h3><p>Choose how MILOOP looks on this device.</p><label class="settings-choice"><span>Light mode</span><input type="radio" name="miloopTheme" value="light" '+(theme==="light"?"checked":"")+'></label><label class="settings-choice"><span>Dark mode</span><input type="radio" name="miloopTheme" value="dark" '+(theme==="dark"?"checked":"")+'></label></div><div class="settings-section"><h3>Privacy & safety</h3><p>Your full date of birth should remain private. Only profile fields you choose to share are shown to other signed-in members. Avoid posting personal contact details publicly.</p><button class="action secondary" id="settingsPrivacyProfile">Review profile visibility</button></div><div class="settings-section"><h3>Session</h3><p>Sign out of MILOOP on this device.</p><button class="action settings-signout" id="settingsSignOut">Sign out</button></div></div>');
   $("settingsEditProfile").onclick=()=>{closePanel();$("profile")?.click();};
   $("settingsPrivacyProfile").onclick=()=>{closePanel();$("profile")?.click();};
   $("settingsPasswordReset").onclick=async()=>{
@@ -430,12 +430,46 @@ const sidebarSettings=document.querySelector('.left nav a[href="#settings"]');
 if(sidebarSettings)sidebarSettings.addEventListener("click",event=>{event.preventDefault();if(needUser())handlers.settings();});
 const settingsStyle=document.createElement("style");
 settingsStyle.textContent=`
-.settings-section{border:1px solid #e8edf5;border-radius:12px;padding:12px;margin:10px 0}
-.settings-section h3{font-size:12px;margin:0 0 8px;color:#243653}
-.settings-choice{display:flex;align-items:center;justify-content:space-between;padding:10px 2px;border-top:1px solid #edf0f5;font-size:11px;color:#53617a}
-.settings-choice input{accent-color:#155eef;width:17px;height:17px}
+/* Responsive settings panel */
+#socialPanel:has(.settings-layout){
+  width:min(760px,calc(100vw - 40px));
+  max-height:min(84vh,820px);
+  padding:clamp(18px,2.4vw,28px);
+  right:20px;top:88px;
+}
+#socialPanel:has(.settings-layout) .social-panel-head{margin-bottom:20px}
+#socialPanel:has(.settings-layout) #socialPanelTitle{font-size:clamp(19px,2vw,24px);letter-spacing:-.4px}
+.settings-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch}
+.settings-section{min-width:0;box-sizing:border-box;border:1px solid #e6ebf3;border-radius:15px;padding:clamp(14px,1.8vw,20px);margin:0;background:#fff}
+.settings-section h3{font-size:13px;margin:0 0 12px;color:#243653;letter-spacing:.1px}
+.settings-section p{font-size:11px;line-height:1.65;margin:6px 0 12px;color:#7b879a}
+.settings-section .social-item{font-size:12px;padding:9px 0}
+.settings-section .action{font-size:11px;padding:11px 14px;margin:5px 5px 3px 0;min-height:38px}
+.settings-choice{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 2px;border-top:1px solid #edf0f5;font-size:12px;color:#53617a}
+.settings-choice input{accent-color:#155eef;width:18px;height:18px;flex:none}
 .settings-signout{background:#d94862!important}
-@media(max-width:700px){#settingsTopButton{width:30px;height:34px;font-size:17px}}
+#settingsTopButton{width:38px;height:38px;display:inline-grid;place-items:center;font-size:19px;line-height:1;flex:none}
+#settingsTopButton:focus-visible{outline:3px solid #9bbcff;outline-offset:2px}
+@media(min-width:1100px){
+ #socialPanel:has(.settings-layout){right:max(24px,calc((100vw - 1180px)/2));}
+}
+@media(max-width:700px){
+ #socialPanel:has(.settings-layout){top:72px;left:10px;right:10px;width:auto;max-width:none;max-height:calc(100dvh - 92px);padding:14px;border-radius:16px}
+ #socialPanel:has(.settings-layout) .social-panel-head{margin-bottom:13px}
+ .settings-layout{grid-template-columns:minmax(0,1fr);gap:10px}
+ .settings-section{padding:13px 14px;border-radius:12px}
+ .settings-section h3{font-size:12px;margin-bottom:8px}
+ .settings-section p{font-size:10px;line-height:1.55}
+ .settings-section .action{width:100%;margin:5px 0;min-height:40px;font-size:11px}
+ .settings-choice{font-size:11px;padding:10px 2px}
+ #settingsTopButton{width:34px;height:36px;font-size:18px}
+}
+@media(max-width:360px){
+ #socialPanel:has(.settings-layout){left:7px;right:7px;padding:11px}
+ .settings-section{padding:11px}
+ .settings-section .action{padding:9px 10px}
+}
+
 html[data-theme="dark"] body{background:#101827!important;color:#e7edf8!important}
 html[data-theme="dark"] .topbar,html[data-theme="dark"] .panel,html[data-theme="dark"] .post,html[data-theme="dark"] .social-panel{background:#182438!important;color:#e7edf8!important;border-color:#2c3a50!important}
 html[data-theme="dark"] .left nav a,html[data-theme="dark"] .post-text,html[data-theme="dark"] .section-head h2,html[data-theme="dark"] .feed-heading h2{color:#d6e0f0}
