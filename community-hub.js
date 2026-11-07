@@ -9,7 +9,7 @@ const $ = id => document.getElementById(id);
 let user = null;
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const name = () => user?.displayName || user?.email?.split("@")[0] || "MILOOP member";
-const dayKey = () => new Date().toISOString().slice(0,10);
+const dayKey = (date = new Date()) => { const p = new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Dhaka",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date); const v = Object.fromEntries(p.map(x=>[x.type,x.value])); return v.year+"-"+v.month+"-"+v.day; };
 const hub = document.createElement("section");
 hub.id = "communityHub";
 hub.innerHTML = '<div class="hub-head"><div><span class="hub-kicker">MILOOP COMMUNITY</span><h2 id="hubTitle">Community Hub</h2></div><button id="hubClose" aria-label="Close">×</button></div><div class="hub-tabs" id="hubTabs"></div><div id="hubContent" aria-live="polite"></div>';
@@ -82,7 +82,7 @@ async function questions(){
 async function streak(){
  const ref=doc(db,"streaks",user.uid),snap=await getDoc(ref),s=snap.data()||{},today=dayKey(),last=s.lastActiveDay||"",already=last===today;
  setContent("Daily Streak",'<div class="hub-card" style="text-align:center"><div style="font-size:42px">🔥</div><h3>'+Number(s.currentStreak||0)+' day streak</h3><p>Keep your learning and community habit going, one day at a time.</p><div class="hub-grid"><div><b>'+Number(s.totalPoints||0)+'</b><small class="hub-muted"> points</small></div><div><b>'+Number(s.longestStreak||0)+'</b><small class="hub-muted"> best streak</small></div></div><button class="hub-btn" id="checkIn" '+(already?"disabled":"")+'>'+(already?"Today completed ✓":"Check in today · +5 points")+'</button></div><p class="hub-safe">Streaks are for fun. Missing a day is okay—there is no penalty.</p>');
- $("checkIn").onclick=async()=>{try{const fresh=(await getDoc(ref)).data()||{},now=dayKey();if(fresh.lastActiveDay===now){toast("You already checked in today.");return;}const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10),next=fresh.lastActiveDay===yesterday?Number(fresh.currentStreak||0)+1:1;await setDoc(ref,{uid:user.uid,displayName:name(),lastActiveDay:now,currentStreak:next,longestStreak:Math.max(next,Number(fresh.longestStreak||0)),totalPoints:Number(fresh.totalPoints||0)+5,updatedAt:serverTimestamp()},{merge:true});toast("Daily check-in saved! +5 points.");streak();}catch(e){toast("Check-in failed: "+(e.code||e.message));}};
+ $("checkIn").onclick=async()=>{try{const fresh=(await getDoc(ref)).data()||{},now=dayKey();if(fresh.lastActiveDay===now){toast("You already checked in today.");return;}const yesterday=dayKey(new Date(Date.now()-86400000)),next=fresh.lastActiveDay===yesterday?Number(fresh.currentStreak||0)+1:1;await setDoc(ref,{uid:user.uid,displayName:name(),lastActiveDay:now,currentStreak:next,longestStreak:Math.max(next,Number(fresh.longestStreak||0)),totalPoints:Number(fresh.totalPoints||0)+5,updatedAt:serverTimestamp()},{merge:true});toast("Daily check-in saved! +5 points.");streak();}catch(e){toast("Check-in failed: "+(e.code||e.message));}};
 }
 async function badges(){
  const snap=await getDoc(doc(db,"streaks",user.uid)),s=snap.data()||{},points=Number(s.totalPoints||0),days=Number(s.longestStreak||0);
