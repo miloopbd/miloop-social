@@ -24,7 +24,20 @@ Responsive social community built with HTML, CSS, JavaScript modules and Firebas
 - Users can only update their own user document; users can only delete their own posts/comments.
 - Review and test rules before inviting the public.
 
-## Community Hub update (2026-11)\n- Polls with one vote per signed-in member\n- Community Q&A with member answers\n- Optional daily check-in streaks and participation badges\n- Private saved-post bookmarks\n- Community events with member RSVPs\n- Weekly knowledge and creative challenges\n- Optional birthday sharing (month/day only, explicit opt-in)\n- QR code profile sharing\n- Fun participation leaderboard\n\nPublish the updated `firestore.rules` in Firebase Console → Firestore Database → Rules. The Community Hub is loaded from `community-hub.js`. Some features require signed-in users. Birthday sharing is optional; users can remove it at any time.\n\n## Not implemented yet
+## Community Hub update (2026-11)
+- Polls with one vote per signed-in member
+- Community Q&A with member answers
+- Optional daily check-in streaks and participation badges
+- Private saved-post bookmarks
+- Community events with member RSVPs
+- Weekly knowledge and creative challenges
+- Optional birthday sharing (month/day only, explicit opt-in)
+- QR code profile sharing
+- Fun participation leaderboard
+
+Publish the updated `firestore.rules` in Firebase Console → Firestore Database → Rules. The Community Hub is loaded from `community-hub.js`. Some features require signed-in users. Birthday sharing is optional; users can remove it at any time.
+
+## Not implemented yet
 Media uploads, stories, follow graph, public profile pages, private/group messaging, notifications, saved posts, reporting, blocking, and admin moderation are future milestones. Do not treat demo UI elements as working features.
 
 ## Hosting
