@@ -62,7 +62,7 @@ async function showPostLikers(post) {
       return {uid,name:data.displayName||data.name||"MILOOP member"};
     } catch { return {uid,name:"MILOOP member"}; }
   }));
-  list.innerHTML=people.map(person=>'<div class="comment-item"><div class="comment-avatar">'+safe(initials(person.name))+'</div><div class="comment-body"><b>'+safe(person.name)+'</b></div></div>').join("");
+  list.innerHTML=people.map(person=>'<button type="button" class="comment-item profile-person-link" data-profile-uid="'+safe(person.uid)+'"><div class="comment-avatar">'+safe(initials(person.name))+'</div><div class="comment-body"><b>'+safe(person.name)+'</b><small>View profile</small></div></button>').join("");
 }
 
 async function openComments(post) {
@@ -82,9 +82,9 @@ async function openComments(post) {
       ]);
       const replies = repliesSnap.docs.map(rd=>{
         const reply=rd.data(), ownReply=currentUser && currentUser.uid===reply.uid;
-        return '<div class="comment-reply"><div class="comment-avatar">'+safe(initials(reply.displayName))+'</div><div class="comment-body"><b>'+safe(reply.displayName||"MILOOP member")+'</b><p>'+safe(reply.text)+'</p><small>'+safe(relativeTime(reply.createdAt))+'</small>'+(ownReply?'<button type="button" class="comment-delete" data-reply-delete="'+safe(d.id)+'|'+safe(rd.id)+'">Delete</button>':"")+'</div></div>';
+        return '<div class="comment-reply"><div class="comment-avatar">'+safe(initials(reply.displayName))+'</div><div class="comment-body"><b><button type="button" class="profile-name-link" data-profile-uid="'+safe(reply.uid)+'">'+safe(reply.displayName||"MILOOP member")+'</button></b><p>'+safe(reply.text)+'</p><small>'+safe(relativeTime(reply.createdAt))+'</small>'+(ownReply?'<button type="button" class="comment-delete" data-reply-delete="'+safe(d.id)+'|'+safe(rd.id)+'">Delete</button>':"")+'</div></div>';
       }).join("");
-      return '<div class="comment-item" data-comment-id="'+safe(d.id)+'"><div class="comment-avatar">'+safe(initials(c.displayName))+'</div><div class="comment-body"><b>'+safe(c.displayName||"MILOOP member")+'</b><p>'+safe(c.text)+'</p><small>'+safe(relativeTime(c.createdAt))+(c.edited?' · edited':"")+'</small><div class="comment-tools"><button type="button" data-comment-like="'+safe(d.id)+'">'+(myLike?.exists()?'♥':'♡')+' Like · '+likesSnap.size+'</button><button type="button" data-reply-toggle="'+safe(d.id)+'">Reply</button>'+(own?'<button type="button" data-comment-edit="'+safe(d.id)+'">Edit</button><button type="button" class="comment-delete" data-comment-delete="'+safe(d.id)+'">Delete</button>':"")+'</div><form class="reply-form" data-reply-form="'+safe(d.id)+'" hidden><input maxlength="500" placeholder="Write a reply…" required><button type="submit">Reply</button></form><div class="comment-replies">'+replies+'</div></div></div>';
+      return '<div class="comment-item" data-comment-id="'+safe(d.id)+'"><div class="comment-avatar">'+safe(initials(c.displayName))+'</div><div class="comment-body"><b><button type="button" class="profile-name-link" data-profile-uid="'+safe(c.uid)+'">'+safe(c.displayName||"MILOOP member")+'</button></b><p>'+safe(c.text)+'</p><small>'+safe(relativeTime(c.createdAt))+(c.edited?' · edited':"")+'</small><div class="comment-tools"><button type="button" data-comment-like="'+safe(d.id)+'">'+(myLike?.exists()?'♥':'♡')+' Like · '+likesSnap.size+'</button><button type="button" data-reply-toggle="'+safe(d.id)+'">Reply</button>'+(own?'<button type="button" data-comment-edit="'+safe(d.id)+'">Edit</button><button type="button" class="comment-delete" data-comment-delete="'+safe(d.id)+'">Delete</button>':"")+'</div><form class="reply-form" data-reply-form="'+safe(d.id)+'" hidden><input maxlength="500" placeholder="Write a reply…" required><button type="submit">Reply</button></form><div class="comment-replies">'+replies+'</div></div></div>';
     }));
     $("commentsList").innerHTML = rows.length ? rows.join("") : '<p class="comment-empty">No comments yet. Start the conversation.</p>';
   },err=>{console.error(err);$("commentsList").innerHTML='<p class="comment-empty">Could not load comments.</p>';});
