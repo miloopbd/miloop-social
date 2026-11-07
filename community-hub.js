@@ -105,7 +105,7 @@ async function events(){
  list.querySelectorAll("[data-rsvp]").forEach(b=>b.onclick=async()=>{try{await setDoc(doc(db,"eventRsvps",b.dataset.rsvp,"members",user.uid),{uid:user.uid,displayName:name(),createdAt:serverTimestamp()});toast("Your interest is recorded.");events();}catch(e){toast("Could not RSVP: "+(e.code||e.message));}});
 }
 const challenges=[
- {id:"weekly-1",title:"Knowledge Check",question:"Which planet is known as the Red Planet?",options:["Venus","Mars","Jupiter","Mercury"],answer:1,explain:"Mars is often called the Red Planet because iron-rich dust gives its surface a reddish colour."},
+ {id:"weekly-1",title:"Study Skills Check",question:"Which is a useful way to organize study tasks?",options:["Write a short task list","Ignore deadlines","Keep every task secret"],answer:0,explain:"A short task list can help you remember what to do and plan your time."},
  {id:"weekly-2",title:"Creative Challenge",question:"Share one practical study habit that helps you learn.",options:["Write a short tip","Skip sleep","Study without breaks"],answer:null,explain:"There are many helpful approaches. Share a respectful, realistic tip."}
 ];
 async function challenge(){
