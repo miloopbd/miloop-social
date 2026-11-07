@@ -19,6 +19,7 @@ document.body.append(panel);
 
 const styles = document.createElement("style");
 styles.textContent = `
+.profile-name-link{border:0;background:transparent;color:#155eef;font:inherit;font-weight:700;padding:0;cursor:pointer;text-align:left}.profile-name-link:hover{text-decoration:underline}
 .social-panel{display:none;position:fixed;z-index:40;right:16px;top:82px;width:min(470px,calc(100vw - 24px));max-height:82vh;overflow:auto;background:#fff;border:1px solid #e4eaf4;border-radius:16px;box-shadow:0 18px 60px #14264a30;padding:18px}
 .social-panel.open{display:block}.social-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .social-panel-head h2{font-size:16px;margin:0;color:#17233d}.social-panel-head button{border:0;border-radius:50%;width:30px;height:30px;background:#f1f4fa;font-size:20px;color:#71809a}
@@ -112,8 +113,9 @@ async function showMemberProfile(uid){
     const snap=await getDoc(doc(db,"publicProfiles",uid));
     if(!snap.exists()){toast("Profile not found.");return;}
     const p=snap.data()||{},mine=currentUser.uid===uid;
-    const fields=[["School","school"],["Date of birth","dateOfBirth"],["College","college"],["University","university"],["City","city"]];
-    const details=fields.filter(x=>p[x[1]]).map(x=>'<div class="social-item"><b>'+x[0]+'</b><small>'+escapeHtml(p[x[1]])+'</small></div>').join("");
+    const fields=[["School","school"],["Class","class"],["Date of birth","dateOfBirth"],["College","college"],["University","university"],["City","city"]];
+    const publicFields=Array.isArray(p.publicFields)?p.publicFields:null;
+    const details=fields.filter(x=>p[x[1]] && (x[1]==="dateOfBirth" ? mine : (publicFields ? publicFields.includes(x[1]) : true))).map(x=>'<div class="social-item"><b>'+x[0]+'</b><small>'+escapeHtml(p[x[1]])+'</small></div>').join("");
     openPanel(mine?"My profile":(p.displayName||"Member profile"),
       '<div style="text-align:center;padding:10px"><div class="chat-avatar" style="width:64px;height:64px;margin:auto;font-size:22px">'+escapeHtml((p.displayName||"M").charAt(0).toUpperCase())+'</div><h2>'+escapeHtml(p.displayName||"MILOOP member")+'</h2><p>'+escapeHtml(p.bio||"")+'</p></div>'+
       (mine?'<button class="action" id="editProfileDetails" style="display:block;width:100%;margin:8px 0 14px">✎ Edit profile</button><button class="action secondary" id="shareProfileLink" style="display:block;width:100%;margin:0 0 14px">↗ Share profile</button>':'<div style="display:flex;gap:7px;margin:8px 0 14px"><button class="action" id="profileFollowToggle" style="flex:1">Loading…</button><button class="action secondary" id="messageProfile" style="flex:1">Message</button></div>')+
@@ -170,17 +172,20 @@ async function showMemberProfile(uid){
   }catch(e){console.error(e);toast("Could not open profile: "+(e.code||e.message));}
 }
 function editOwnProfile(p){
-  const fields=[["School","school"],["Date of birth","dateOfBirth"],["College","college"],["University","university"],["City","city"]];
-  openPanel("Edit profile",'<p>All fields are optional. Leave any field blank if you prefer not to share it.</p>'+
+  const fields=[["School","school"],["Class","class"],["Date of birth","dateOfBirth"],["College","college"],["University","university"],["City","city"]];
+  const defaultPublic=["school","college","university","city"];
+  const selectedPublic=Array.isArray(p.publicFields)?p.publicFields:defaultPublic;
+  openPanel("Edit profile",'<p>All fields are optional. Choose which details other signed-in members can see. Your full date of birth is private unless you explicitly make it public.</p>'+
     '<label>Display name<input id="profileName" maxlength="60" value="'+escapeHtml(p.displayName||"")+'"></label>'+
     '<label>Bio<textarea id="profileBio" maxlength="180">'+escapeHtml(p.bio||"")+'</textarea></label>'+
-    fields.map(x=>'<label>'+x[0]+'<input id="profile_'+x[1]+'" '+(x[1]==="dateOfBirth"?'type="date"':'type="text"')+' maxlength="100" value="'+escapeHtml(p[x[1]]||"")+'"></label>').join("")+
+    fields.map(x=>'<label>'+x[0]+'<input id="profile_'+x[1]+'" '+(x[1]==="dateOfBirth"?'type="date"':'type="text"')+' maxlength="100" value="'+escapeHtml(p[x[1]]||"")+'"></label>'+(x[1]==="dateOfBirth"?'<small style="color:#7d899d">Private — only you can see your full date of birth.</small>':'<label style="display:flex;align-items:center;gap:8px;font-size:11px"><input type="checkbox" id="public_'+x[1]+'" style="width:auto;margin:0" '+(selectedPublic.includes(x[1])?'checked':'')+'>Show '+x[0]+' on my profile</label>')).join("")+
     '<button class="action" id="savePublicProfile">Save profile</button><button class="action secondary" id="cancelProfileEdit">Cancel</button>');
   $("cancelProfileEdit").onclick=()=>showMemberProfile(currentUser.uid);
   $("savePublicProfile").onclick=async()=>{
     const name=$("profileName").value.trim();if(!name){toast("Display name is required.");return;}
     const data={displayName:name.slice(0,60),bio:$("profileBio").value.trim().slice(0,180),updatedAt:serverTimestamp()};
     fields.forEach(x=>data[x[1]]=$("profile_"+x[1]).value.trim().slice(0,100));
+    data.publicFields=fields.filter(x=>x[1]!=="dateOfBirth" && $("public_"+x[1]).checked).map(x=>x[1]);
     try{
       await updateDoc(doc(db,"publicProfiles",currentUser.uid),data);
       await (await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js")).updateProfile(currentUser,{displayName:name});
@@ -214,7 +219,7 @@ async function openChat(otherUid,otherName){
   try{
     const chat=await getOrCreateChat(otherUid);
     const chatId=chat.chatId,chatRef=chat.chatRef;
-    $("socialPanelTitle").textContent=otherName||"Private chat";
+    $("socialPanelTitle").innerHTML='<button type="button" class="profile-name-link" id="chatHeaderProfile" style="font-size:15px" data-profile-uid="'+escapeHtml(otherUid)+'">'+escapeHtml(otherName||"Private chat")+'</button>';
     $("socialPanelBody").innerHTML='<button class="action secondary" id="backToChats">← All chats</button>'+
       '<div class="social-chat-log" id="chatLog">Loading messages…</div>'+
       '<form id="chatSendForm" class="chat-send"><input id="chatMessage" maxlength="1000" placeholder="Write a message…" required><button class="action" type="submit">Send</button></form>';
@@ -320,7 +325,7 @@ handlers.messages=()=>{
       let name="MILOOP member";
       try{const profile=await getDoc(doc(db,"publicProfiles",other));if(profile.exists())name=profile.data().displayName||name;}
       catch(e){console.warn("Could not load chat member profile",e);}
-      return '<button class="chat-row" data-chat-uid="'+escapeHtml(other)+'" data-chat-name="'+escapeHtml(name)+'"><span class="chat-avatar">'+escapeHtml(name.charAt(0).toUpperCase())+'</span><span class="chat-meta"><b>'+escapeHtml(name)+'</b><small>Open conversation</small></span><span>›</span></button>';
+      return '<div class="chat-row"><span class="chat-avatar">'+escapeHtml(name.charAt(0).toUpperCase())+'</span><span class="chat-meta"><b><button type="button" class="profile-name-link" data-profile-uid="'+escapeHtml(other)+'">'+escapeHtml(name)+'</button></b><small>Open conversation</small></span><button type="button" class="action secondary" data-chat-uid="'+escapeHtml(other)+'" data-chat-name="'+escapeHtml(name)+'">Message</button></div>';
     }));
     if($("chatList"))$("chatList").innerHTML=rows.join("")||'<div class="social-item">No conversations yet.</div>';
     $("chatList")?.querySelectorAll("[data-chat-uid]").forEach(el=>el.onclick=()=>openChat(el.dataset.chatUid,el.dataset.chatName));
