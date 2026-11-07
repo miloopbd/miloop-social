@@ -144,18 +144,6 @@ launcher.type="button";launcher.id="communityHubLauncher";launcher.textContent="
 launcher.style.cssText="position:fixed;z-index:39;right:18px;bottom:22px;border:0;border-radius:24px;background:#155eef;color:white;padding:12px 16px;font:700 11px 'DM Sans',sans-serif;box-shadow:0 8px 24px #155eef40;cursor:pointer";
 launcher.onclick=()=>open("polls");document.body.append(launcher);
 
-// Put Community Hub in the top navigation before Messages and Profile.
-const topActions=document.querySelector(".top-actions");
-if(topActions&&!document.getElementById("communityHubTopButton")){
- const topButton=document.createElement("button");
- topButton.type="button";topButton.id="communityHubTopButton";topButton.className="hub-top-button";
- topButton.textContent="✦ Community Hub";topButton.addEventListener("click",()=>open("polls"));
- const messagesButton=topActions.querySelector("#messages");
- topActions.insertBefore(topButton,messagesButton||topActions.firstChild);
-}
-const hubTopStyle=document.createElement("style");
-hubTopStyle.textContent=`.hub-top-button{border:1px solid #dce7ff;background:#f4f7ff;color:#155eef;border-radius:9px;padding:9px 12px;font:700 10px 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}.hub-top-button:hover{background:#eaf1ff}@media(max-width:700px){.hub-top-button{padding:7px 9px;font-size:9px}}@media(max-width:380px){.hub-top-button{padding:6px 7px;font-size:8px}}`;
-document.head.append(hubTopStyle);
 const sideNav=document.querySelector(".left nav");
 if(sideNav){const a=document.createElement("a");a.href="#community";a.textContent="✦ ";const span=document.createElement("span");span.textContent="Community Hub";a.append(span);a.addEventListener("click",e=>{e.preventDefault();open("polls");});sideNav.append(a);}
 function addBookmarkControls(){
