@@ -138,3 +138,20 @@ document.addEventListener("click",e=>{
 });
 onAuthStateChanged(auth,u=>{user=u;});
 window.MILOOPCommunityHub={open,close};
+
+const launcher=document.createElement("button");
+launcher.type="button";launcher.id="communityHubLauncher";launcher.textContent="✦ Community Hub";
+launcher.style.cssText="position:fixed;z-index:39;right:18px;bottom:22px;border:0;border-radius:24px;background:#155eef;color:white;padding:12px 16px;font:700 11px 'DM Sans',sans-serif;box-shadow:0 8px 24px #155eef40;cursor:pointer";
+launcher.onclick=()=>open("polls");document.body.append(launcher);
+const sideNav=document.querySelector(".left nav");
+if(sideNav){const a=document.createElement("a");a.href="#community";a.textContent="✦ ";const span=document.createElement("span");span.textContent="Community Hub";a.append(span);a.addEventListener("click",e=>{e.preventDefault();open("polls");});sideNav.append(a);}
+function addBookmarkControls(){
+ document.querySelectorAll("#posts .post").forEach(card=>{
+  const actions=card.querySelector(".post-actions");
+  if(actions&&!actions.querySelector('[data-action="bookmark"]')){
+   const b=document.createElement("button");b.type="button";b.dataset.action="bookmark";b.innerHTML="<span>▱</span>Save";actions.append(b);
+  }
+ });
+}
+new MutationObserver(addBookmarkControls).observe(document.getElementById("posts")||document.body,{childList:true,subtree:true});
+addBookmarkControls();
