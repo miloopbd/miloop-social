@@ -108,6 +108,205 @@ service cloud.firestore {
       }
     }
 
+
+    // Community Hub: polls and one vote per member.
+    match /polls/{pollId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.options is list
+        && request.resource.data.options.size() >= 2
+        && request.resource.data.options.size() <= 4
+        && request.resource.data.displayName is string
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      match /votes/{voterUid} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.auth.uid == voterUid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.option is int
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.option >= 0
+          && request.resource.data.option < get(/databases/$(database)/documents/polls/$(pollId)).data.options.size();
+        allow update, delete: if false;
+      }
+    }
+
+    // Community questions and member answers.
+    match /questions/{questionId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string
+        && request.resource.data.body.size() <= 800
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      match /answers/{answerId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.createdAt == request.time;
+        allow update: if false;
+        allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      }
+    }
+
+    // Streak points are deliberately small and self-reported; this is a fun feature, not a prize system.
+    match /streaks/{userId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.currentStreak is int
+        && request.resource.data.currentStreak <= 1
+        && request.resource.data.longestStreak is int
+        && request.resource.data.longestStreak <= 1
+        && request.resource.data.totalPoints is int
+        && request.resource.data.totalPoints <= 5
+        && request.resource.data.lastActiveDay is string;
+      allow update: if signedIn() && request.auth.uid == userId
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','lastActiveDay','currentStreak','longestStreak','totalPoints','updatedAt'])
+        && request.resource.data.totalPoints is int
+        && request.resource.data.totalPoints <= resource.data.totalPoints + 5
+        && request.resource.data.totalPoints >= resource.data.totalPoints
+        && request.resource.data.currentStreak is int
+        && request.resource.data.currentStreak <= resource.data.currentStreak + 1
+        && request.resource.data.lastActiveDay is string;
+      allow delete: if false;
+    }
+
+    // Bookmarks are private to their owner.
+    match /bookmarks/{userId}/items/{postId} {
+      allow read, create, update, delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    // Public community events and private per-member RSVPs.
+    match /events/{eventId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 100
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 500
+        && request.resource.data.startsAt is timestamp
+        && request.resource.data.startsAt > request.time
+        && request.resource.data.createdAt == request.time;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      match /members/{memberUid} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.auth.uid == memberUid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if signedIn() && request.auth.uid == memberUid;
+      }
+    }
+    match /eventRsvps/{eventId}/members/{memberUid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.auth.uid == memberUid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if signedIn() && request.auth.uid == memberUid;
+    }
+
+    // Challenge entries: one entry per signed-in member per challenge.
+    match /challengeEntries/{challengeId}/entries/{memberUid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.auth.uid == memberUid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && (!('text' in request.resource.data) || (request.resource.data.text is string && request.resource.data.text.size() <= 400))
+        && (!('correct' in request.resource.data) || request.resource.data.correct is bool);
+      allow update, delete: if false;
+    }
+
+    // Birthday visibility is opt-in and stores month/day only, never a birth year.
+    match /birthdayOptIns/{userId} {
+      allow read: if signedIn() && resource.data.enabled == true;
+      allow create, update: if signedIn() && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.displayName is string
+        && request.resource.data.monthDay is string
+        && request.resource.data.monthDay.size() == 5
+        && request.resource.data.enabled == true;
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['authorUid','authorName','text','mediaUrl','mediaType','mediaPath','createdAt','likes','likeCount'])
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorName is string
+        && request.resource.data.authorName.size() > 0
+        && request.resource.data.authorName.size() <= 60
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 1000
+        && request.resource.data.likes is list
+        && request.resource.data.likes.size() == 0
+        && request.resource.data.likeCount == 0
+        && request.resource.data.createdAt == request.time;
+      allow update: if (signedIn() && resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 1000)
+        || (signedIn()
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes','likeCount'])
+        && request.resource.data.likes is list
+        && request.resource.data.likeCount is int
+        && request.resource.data.likeCount == request.resource.data.likes.size()
+        && request.resource.data.likeCount >= 0
+        && (
+          (request.resource.data.likes.size() == resource.data.likes.size() + 1
+           && request.resource.data.likes.hasAll(resource.data.likes)
+           && request.resource.data.likes.hasAny([request.auth.uid])
+           && !resource.data.likes.hasAny([request.auth.uid]))
+          ||
+          (request.resource.data.likes.size() == resource.data.likes.size() - 1
+           && resource.data.likes.hasAll(request.resource.data.likes)
+           && resource.data.likes.hasAny([request.auth.uid])
+           && !request.resource.data.likes.hasAny([request.auth.uid]))
+        ));
+      allow delete: if signedIn() && resource.data.authorUid == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(['uid','displayName','text','createdAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.displayName is string
+          && request.resource.data.displayName.size() > 0
+          && request.resource.data.displayName.size() <= 60
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.createdAt == request.time;
+        allow update: if false;
+        allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      }
+    }
+  }
+})
+        && request.resource.data.enabled == true;
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
     match /posts/{postId} {
       allow read: if true;
       allow create: if signedIn()
