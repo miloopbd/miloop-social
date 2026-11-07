@@ -470,12 +470,6 @@ settingsStyle.textContent=`
  .settings-section .action{padding:9px 10px}
 }
 
-.settings-section{border:1px solid #e8edf5;border-radius:12px;padding:12px;margin:10px 0}
-.settings-section h3{font-size:12px;margin:0 0 8px;color:#243653}
-.settings-choice{display:flex;align-items:center;justify-content:space-between;padding:10px 2px;border-top:1px solid #edf0f5;font-size:11px;color:#53617a}
-.settings-choice input{accent-color:#155eef;width:17px;height:17px}
-.settings-signout{background:#d94862!important}
-@media(max-width:700px){#settingsTopButton{width:30px;height:34px;font-size:17px}}
 html[data-theme="dark"] body{background:#101827!important;color:#e7edf8!important}
 html[data-theme="dark"] .topbar,html[data-theme="dark"] .panel,html[data-theme="dark"] .post,html[data-theme="dark"] .social-panel{background:#182438!important;color:#e7edf8!important;border-color:#2c3a50!important}
 html[data-theme="dark"] .left nav a,html[data-theme="dark"] .post-text,html[data-theme="dark"] .section-head h2,html[data-theme="dark"] .feed-heading h2{color:#d6e0f0}
