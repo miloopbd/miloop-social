@@ -398,3 +398,50 @@ document.querySelector(".mobile-nav")?.addEventListener("click",event=>{
 });
 ["profile","messages","notifications","allStories","explore","seePeople","photo","video","feeling"].forEach(button);
 onAuthStateChanged(auth,async user=>{currentUser=user;if(user){try{await ensurePublicProfile(user);}catch(e){console.error("Public profile sync failed:",e);}const targetProfile=new URLSearchParams(location.search).get("profile");if(targetProfile)showMemberProfile(targetProfile);}else if(new URLSearchParams(location.search).has("profile")){toast("Sign in to view this profile.");}});
+
+
+// Account settings: profile, password reset, appearance and sign out.
+handlers.settings=()=>{
+  const theme=localStorage.getItem("miloop-theme")||"light";
+  openPanel("Settings",'<div class="settings-section"><h3>Account</h3><div class="social-item"><b>Signed in as</b><small>'+escapeHtml(currentUser?.email||"Email unavailable")+'</small></div><button class="action" id="settingsEditProfile">✎ Edit profile details</button><button class="action secondary" id="settingsPasswordReset">Send password reset email</button></div><div class="settings-section"><h3>Appearance</h3><p>Choose how MILOOP looks on this device.</p><label class="settings-choice"><span>Light mode</span><input type="radio" name="miloopTheme" value="light" '+(theme==="light"?"checked":"")+'></label><label class="settings-choice"><span>Dark mode</span><input type="radio" name="miloopTheme" value="dark" '+(theme==="dark"?"checked":"")+'></label></div><div class="settings-section"><h3>Privacy & safety</h3><p>Your full date of birth should remain private. Only profile fields you choose to share are shown to other signed-in members. Avoid posting personal contact details publicly.</p><button class="action secondary" id="settingsPrivacyProfile">Review profile visibility</button></div><div class="settings-section"><h3>Session</h3><p>Sign out of MILOOP on this device.</p><button class="action settings-signout" id="settingsSignOut">Sign out</button></div>');
+  $("settingsEditProfile").onclick=()=>{closePanel();$("profile")?.click();};
+  $("settingsPrivacyProfile").onclick=()=>{closePanel();$("profile")?.click();};
+  $("settingsPasswordReset").onclick=async()=>{
+    const email=currentUser?.email;if(!email){toast("No email address is linked to this account.");return;}
+    try{const {sendPasswordResetEmail}=await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js");await sendPasswordResetEmail(auth,email);toast("Password reset email sent to "+email+".");}
+    catch(e){console.error(e);toast("Could not send reset email: "+(e.code||e.message));}
+  };
+  document.querySelectorAll('input[name="miloopTheme"]').forEach(input=>input.onchange=()=>{
+    const selected=input.value;localStorage.setItem("miloop-theme",selected);document.documentElement.dataset.theme=selected;toast(selected==="dark"?"Dark mode enabled.":"Light mode enabled.");
+  });
+  $("settingsSignOut").onclick=async()=>{
+    if(!confirm("Sign out of MILOOP on this device?"))return;
+    try{const {signOut}=await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js");await signOut(auth);closePanel();toast("You have signed out.");}
+    catch(e){console.error(e);toast("Could not sign out: "+(e.code||e.message));}
+  };
+};
+const settingsButton=document.createElement("button");
+settingsButton.type="button";settingsButton.id="settingsTopButton";settingsButton.className="icon-btn";
+settingsButton.setAttribute("aria-label","Settings");settingsButton.title="Settings";settingsButton.textContent="⚙";
+settingsButton.addEventListener("click",()=>{if(needUser())handlers.settings();});
+const topActions=document.querySelector(".top-actions");
+if(topActions&&!document.getElementById("settingsTopButton"))topActions.insertBefore(settingsButton,topActions.querySelector("#profile"));
+const sidebarSettings=document.querySelector('.left nav a[href="#settings"]');
+if(sidebarSettings)sidebarSettings.addEventListener("click",event=>{event.preventDefault();if(needUser())handlers.settings();});
+const settingsStyle=document.createElement("style");
+settingsStyle.textContent=`
+.settings-section{border:1px solid #e8edf5;border-radius:12px;padding:12px;margin:10px 0}
+.settings-section h3{font-size:12px;margin:0 0 8px;color:#243653}
+.settings-choice{display:flex;align-items:center;justify-content:space-between;padding:10px 2px;border-top:1px solid #edf0f5;font-size:11px;color:#53617a}
+.settings-choice input{accent-color:#155eef;width:17px;height:17px}
+.settings-signout{background:#d94862!important}
+@media(max-width:700px){#settingsTopButton{width:30px;height:34px;font-size:17px}}
+html[data-theme="dark"] body{background:#101827!important;color:#e7edf8!important}
+html[data-theme="dark"] .topbar,html[data-theme="dark"] .panel,html[data-theme="dark"] .post,html[data-theme="dark"] .social-panel{background:#182438!important;color:#e7edf8!important;border-color:#2c3a50!important}
+html[data-theme="dark"] .left nav a,html[data-theme="dark"] .post-text,html[data-theme="dark"] .section-head h2,html[data-theme="dark"] .feed-heading h2{color:#d6e0f0}
+html[data-theme="dark"] .search,html[data-theme="dark"] .compose-prompt,html[data-theme="dark"] .mobile-nav{background:#202e43!important;color:#d6e0f0!important}
+html[data-theme="dark"] .social-panel input,html[data-theme="dark"] .social-panel textarea{background:#202e43;color:#e7edf8;border-color:#35445b}
+html[data-theme="dark"] .settings-section{border-color:#35445b}
+`;
+document.head.append(settingsStyle);
+const savedTheme=localStorage.getItem("miloop-theme");if(savedTheme==="dark"||savedTheme==="light")document.documentElement.dataset.theme=savedTheme;
