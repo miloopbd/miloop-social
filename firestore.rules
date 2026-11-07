@@ -43,6 +43,8 @@ service cloud.firestore {
         && request.resource.data.bio is string
         && request.resource.data.bio.size() <= 180
         && (!('school' in request.resource.data) || request.resource.data.school is string)
+        && (!('class' in request.resource.data) || request.resource.data.class is string)
+        && (!('publicFields' in request.resource.data) || request.resource.data.publicFields is list)
         && (!('dateOfBirth' in request.resource.data) || request.resource.data.dateOfBirth is string)
         && (!('college' in request.resource.data) || request.resource.data.college is string)
         && (!('university' in request.resource.data) || request.resource.data.university is string)
