@@ -90,6 +90,70 @@ async function openComments(post) {
   },err=>{console.error(err);$("commentsList").innerHTML='<p class="comment-empty">Could not load comments.</p>';});
 }
 
+
+$("closeComments").addEventListener("click",()=>{commentsDialog.close();if(stopComments){stopComments();stopComments=null;}});
+commentForm.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!currentUser){$("authOpen").click();return;}
+  const text=commentText.value.trim();
+  if(!text || !activePostId)return;
+  const submit=e.submitter;if(submit)submit.disabled=true;
+  try{
+    await addDoc(collection(db,"posts",activePostId,"comments"),{
+      uid:currentUser.uid,
+      displayName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",
+      text,createdAt:serverTimestamp()
+    });
+    commentText.value="";
+  }catch(err){console.error(err);toast("Could not add comment. Check Firestore Rules.");}
+  finally{if(submit)submit.disabled=false;}
+});
+$("commentsList").addEventListener("click",async e=>{
+  const like=e.target.closest("[data-comment-like]");
+  const toggle=e.target.closest("[data-reply-toggle]");
+  const edit=e.target.closest("[data-comment-edit]");
+  const del=e.target.closest("[data-comment-delete]");
+  const replyDel=e.target.closest("[data-reply-delete]");
+  if(!currentUser){$("authOpen").click();return;}
+  try{
+    if(like){
+      const ref=doc(db,"posts",activePostId,"comments",like.dataset.commentLike,"likes",currentUser.uid);
+      const existing=await getDoc(ref);
+      if(existing.exists()) await deleteDoc(ref);
+      else await setDoc(ref,{uid:currentUser.uid,createdAt:serverTimestamp()});
+      const active=posts.find(p=>p.id===activePostId);if(active)openComments(active);
+    } else if(toggle){
+      const form=$("commentsList").querySelector('[data-reply-form="'+toggle.dataset.replyToggle+'"]');
+      if(form){form.hidden=!form.hidden;if(!form.hidden)form.querySelector("input").focus();}
+    } else if(edit){
+      const ref=doc(db,"posts",activePostId,"comments",edit.dataset.commentEdit);
+      const snap=await getDoc(ref);if(!snap.exists()||snap.data().uid!==currentUser.uid)return;
+      const changed=prompt("Edit your comment",snap.data().text);if(changed===null)return;
+      if(!changed.trim()){toast("Comment cannot be empty.");return;}
+      await updateDoc(ref,{text:changed.trim().slice(0,500),edited:true,editedAt:serverTimestamp()});
+    } else if(del){
+      await deleteDoc(doc(db,"posts",activePostId,"comments",del.dataset.commentDelete));
+    } else if(replyDel){
+      const [commentId,replyId]=replyDel.dataset.replyDelete.split("|");
+      const ref=doc(db,"posts",activePostId,"comments",commentId,"replies",replyId);
+      const snap=await getDoc(ref);if(snap.exists()&&snap.data().uid===currentUser.uid)await deleteDoc(ref);
+    }
+  }catch(err){console.error(err);toast("Comment action failed: "+(err.code||"try again"));}
+});
+$("commentsList").addEventListener("submit",async e=>{
+  const form=e.target.closest("[data-reply-form]");if(!form)return;
+  e.preventDefault();if(!currentUser){$("authOpen").click();return;}
+  const text=form.querySelector("input").value.trim();if(!text)return;
+  try{
+    await addDoc(collection(db,"posts",activePostId,"comments",form.dataset.replyForm,"replies"),{
+      uid:currentUser.uid,
+      displayName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",
+      text:text.slice(0,500),createdAt:serverTimestamp()
+    });
+    form.reset();toast("Reply added.");
+  }catch(err){console.error(err);toast("Could not add reply: "+(err.code||"try again"));}
+});
+
 function openPost() {
   if(!currentUser){$("authOpen").click();toast("Sign in before creating a post.");return;}
   textarea.value=""; $("counter").textContent="0 / 1000"; dialog.showModal(); textarea.focus();
