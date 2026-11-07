@@ -1,6 +1,6 @@
 import { auth, db } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { collection, addDoc, setDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { collection, addDoc, setDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, arrayUnion, arrayRemove, deleteDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
 const dialog = $("postDialog"), textarea = $("postText");
@@ -32,7 +32,7 @@ function render() {
       <div class="post-author"><b><button type="button" class="post-author-link" data-profile-uid="${safe(p.authorUid)}">${safe(p.authorName||"MILOOP member")}</button></b><small>${safe(relativeTime(p.createdAt))}</small></div>
       ${mine?'<button class="post-menu" data-action="edit" aria-label="Edit your post">✎</button><button class="post-menu" data-action="delete" aria-label="Delete your post">×</button>':""}</div>
       <p class="post-text">${safe(p.text)}</p>
-      <div class="stats"><span>♥ ${Number(p.likeCount)||0} likes</span></div>
+      <div class="stats"><button type="button" data-action="likers" aria-label="See who liked this post">♥ ${Number(p.likeCount)||0} likes · See who</button></div>
       <div class="post-actions"><button data-action="like" class="${liked?"liked":""}" ${currentUser?"":"disabled"}><span>${liked?"♥":"♡"}</span>Like</button>
       <button data-action="comment"><span>▢</span>Comment</button><button data-action="share"><span>↗</span>Share</button><button data-action="copy-link"><span>🔗</span>Copy link</button></div>
     </article>`;
@@ -42,20 +42,55 @@ function render() {
 const commentsDialog = $("commentsDialog");
 const commentForm = $("commentForm");
 const commentText = $("commentText");
-function openComments(post) {
+async function showPostLikers(post) {
+  if (!currentUser) { $("authOpen").click(); return; }
+  const ids = [...new Set(post.likes || [])];
+  const dialog = document.createElement("dialog");
+  dialog.className = "comments-dialog";
+  dialog.innerHTML = '<div class="comments-shell"><div class="dialog-head"><div><p class="eyebrow">POST REACTIONS</p><h2>Liked by</h2></div><button type="button" class="close" aria-label="Close">×</button></div><div class="comments-list"><p class="comment-empty">Loading people…</p></div></div>';
+  document.body.append(dialog);
+  const close = () => { dialog.close(); dialog.remove(); };
+  dialog.querySelector(".close").onclick = close;
+  dialog.addEventListener("click",e=>{if(e.target===dialog)close();});
+  dialog.showModal();
+  const list = dialog.querySelector(".comments-list");
+  if (!ids.length) { list.innerHTML='<p class="comment-empty">No likes yet.</p>'; return; }
+  const people = await Promise.all(ids.map(async uid=>{
+    try {
+      const snap=await getDoc(doc(db,"publicProfiles",uid));
+      const data=snap.exists()?snap.data():{};
+      return {uid,name:data.displayName||data.name||"MILOOP member"};
+    } catch { return {uid,name:"MILOOP member"}; }
+  }));
+  list.innerHTML=people.map(person=>'<div class="comment-item"><div class="comment-avatar">'+safe(initials(person.name))+'</div><div class="comment-body"><b>'+safe(person.name)+'</b></div></div>').join("");
+}
+
+async function openComments(post) {
   activePostId = post.id;
   $("commentsTitle").textContent = "Comments";
   $("commentsList").innerHTML = '<p class="comment-empty">Loading comments…</p>';
   commentText.value = "";
   commentsDialog.showModal();
   if(stopComments) stopComments();
-  stopComments = onSnapshot(query(collection(db,"posts",post.id,"comments"),orderBy("createdAt","asc")),snap=>{
-    $("commentsList").innerHTML = snap.empty ? '<p class="comment-empty">No comments yet. Start the conversation.</p>' : snap.docs.map(d=>{
+  stopComments = onSnapshot(query(collection(db,"posts",post.id,"comments"),orderBy("createdAt","asc")), async snap=>{
+    const rows = await Promise.all(snap.docs.map(async d=>{
       const c=d.data(), own=currentUser && currentUser.uid===c.uid;
-      return `<div class="comment-item"><div class="comment-avatar">${safe(initials(c.displayName))}</div><div class="comment-body"><b>${safe(c.displayName||"MILOOP member")}</b><p>${safe(c.text)}</p><small>${safe(relativeTime(c.createdAt))}</small></div>${own?`<button type="button" class="comment-delete" data-comment-delete="${safe(d.id)}">Delete</button>`:""}</div>`;
-    }).join("");
+      const [likesSnap,repliesSnap,myLike] = await Promise.all([
+        getDocs(collection(db,"posts",post.id,"comments",d.id,"likes")),
+        getDocs(query(collection(db,"posts",post.id,"comments",d.id,"replies"),orderBy("createdAt","asc"))),
+        currentUser ? getDoc(doc(db,"posts",post.id,"comments",d.id,"likes",currentUser.uid)) : Promise.resolve(null)
+      ]);
+      const replies = repliesSnap.docs.map(rd=>{
+        const reply=rd.data(), ownReply=currentUser && currentUser.uid===reply.uid;
+        return '<div class="comment-reply"><div class="comment-avatar">'+safe(initials(reply.displayName))+'</div><div class="comment-body"><b>'+safe(reply.displayName||"MILOOP member")+'</b><p>'+safe(reply.text)+'</p><small>'+safe(relativeTime(reply.createdAt))+'</small>'+(ownReply?'<button type="button" class="comment-delete" data-reply-delete="'+safe(d.id)+'|'+safe(rd.id)+'">Delete</button>':"")+'</div></div>';
+      }).join("");
+      return '<div class="comment-item" data-comment-id="'+safe(d.id)+'"><div class="comment-avatar">'+safe(initials(c.displayName))+'</div><div class="comment-body"><b>'+safe(c.displayName||"MILOOP member")+'</b><p>'+safe(c.text)+'</p><small>'+safe(relativeTime(c.createdAt))+(c.edited?' · edited':"")+'</small><div class="comment-tools"><button type="button" data-comment-like="'+safe(d.id)+'">'+(myLike?.exists()?'♥':'♡')+' Like · '+likesSnap.size+'</button><button type="button" data-reply-toggle="'+safe(d.id)+'">Reply</button>'+(own?'<button type="button" data-comment-edit="'+safe(d.id)+'">Edit</button><button type="button" class="comment-delete" data-comment-delete="'+safe(d.id)+'">Delete</button>':"")+'</div><form class="reply-form" data-reply-form="'+safe(d.id)+'" hidden><input maxlength="500" placeholder="Write a reply…" required><button type="submit">Reply</button></form><div class="comment-replies">'+replies+'</div></div></div>';
+    }));
+    $("commentsList").innerHTML = rows.length ? rows.join("") : '<p class="comment-empty">No comments yet. Start the conversation.</p>';
   },err=>{console.error(err);$("commentsList").innerHTML='<p class="comment-empty">Could not load comments.</p>';});
 }
+
+
 $("closeComments").addEventListener("click",()=>{commentsDialog.close();if(stopComments){stopComments();stopComments=null;}});
 commentForm.addEventListener("submit",async e=>{
   e.preventDefault();
@@ -74,9 +109,49 @@ commentForm.addEventListener("submit",async e=>{
   finally{if(submit)submit.disabled=false;}
 });
 $("commentsList").addEventListener("click",async e=>{
-  const b=e.target.closest("[data-comment-delete]");if(!b||!activePostId)return;
-  try{await deleteDoc(doc(db,"posts",activePostId,"comments",b.dataset.commentDelete));}
-  catch(err){console.error(err);toast("Could not delete comment.");}
+  const like=e.target.closest("[data-comment-like]");
+  const toggle=e.target.closest("[data-reply-toggle]");
+  const edit=e.target.closest("[data-comment-edit]");
+  const del=e.target.closest("[data-comment-delete]");
+  const replyDel=e.target.closest("[data-reply-delete]");
+  if(!currentUser){$("authOpen").click();return;}
+  try{
+    if(like){
+      const ref=doc(db,"posts",activePostId,"comments",like.dataset.commentLike,"likes",currentUser.uid);
+      const existing=await getDoc(ref);
+      if(existing.exists()) await deleteDoc(ref);
+      else await setDoc(ref,{uid:currentUser.uid,createdAt:serverTimestamp()});
+      const active=posts.find(p=>p.id===activePostId);if(active)openComments(active);
+    } else if(toggle){
+      const form=$("commentsList").querySelector('[data-reply-form="'+toggle.dataset.replyToggle+'"]');
+      if(form){form.hidden=!form.hidden;if(!form.hidden)form.querySelector("input").focus();}
+    } else if(edit){
+      const ref=doc(db,"posts",activePostId,"comments",edit.dataset.commentEdit);
+      const snap=await getDoc(ref);if(!snap.exists()||snap.data().uid!==currentUser.uid)return;
+      const changed=prompt("Edit your comment",snap.data().text);if(changed===null)return;
+      if(!changed.trim()){toast("Comment cannot be empty.");return;}
+      await updateDoc(ref,{text:changed.trim().slice(0,500),edited:true,editedAt:serverTimestamp()});
+    } else if(del){
+      await deleteDoc(doc(db,"posts",activePostId,"comments",del.dataset.commentDelete));
+    } else if(replyDel){
+      const [commentId,replyId]=replyDel.dataset.replyDelete.split("|");
+      const ref=doc(db,"posts",activePostId,"comments",commentId,"replies",replyId);
+      const snap=await getDoc(ref);if(snap.exists()&&snap.data().uid===currentUser.uid)await deleteDoc(ref);
+    }
+  }catch(err){console.error(err);toast("Comment action failed: "+(err.code||"try again"));}
+});
+$("commentsList").addEventListener("submit",async e=>{
+  const form=e.target.closest("[data-reply-form]");if(!form)return;
+  e.preventDefault();if(!currentUser){$("authOpen").click();return;}
+  const text=form.querySelector("input").value.trim();if(!text)return;
+  try{
+    await addDoc(collection(db,"posts",activePostId,"comments",form.dataset.replyForm,"replies"),{
+      uid:currentUser.uid,
+      displayName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",
+      text:text.slice(0,500),createdAt:serverTimestamp()
+    });
+    form.reset();toast("Reply added.");
+  }catch(err){console.error(err);toast("Could not add reply: "+(err.code||"try again"));}
 });
 
 function openPost() {
@@ -102,7 +177,8 @@ $("posts").addEventListener("click",async e=>{
   const b=e.target.closest("[data-action]"); if(!b)return;
   const p=posts.find(x=>x.id===b.closest("[data-id]")?.dataset.id); if(!p)return;
   try {
-    if(b.dataset.action==="like"){
+    if(b.dataset.action==="likers"){ await showPostLikers(p);
+    } else if(b.dataset.action==="like"){
       if(!currentUser){$("authOpen").click();return;}
       const liked=(p.likes||[]).includes(currentUser.uid);
       await updateDoc(doc(db,"posts",p.id),{likes:liked?arrayRemove(currentUser.uid):arrayUnion(currentUser.uid),likeCount:Math.max(0,(p.likeCount||0)+(liked?-1:1))});
