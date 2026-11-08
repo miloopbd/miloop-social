@@ -67,25 +67,51 @@ const commentForm = $("commentForm");
 const commentText = $("commentText");
 async function showPostLikers(post) {
   if (!currentUser) { $("authOpen").click(); return; }
-  const ids = [...new Set(post.likes || [])];
   const dialog = document.createElement("dialog");
   dialog.className = "comments-dialog";
-  dialog.innerHTML = '<div class="comments-shell"><div class="dialog-head"><div><p class="eyebrow">POST REACTIONS</p><h2>Liked by</h2></div><button type="button" class="close" aria-label="Close">×</button></div><div class="comments-list"><p class="comment-empty">Loading people…</p></div></div>';
+  dialog.innerHTML = '<div class="comments-shell"><div class="dialog-head"><div><p class="eyebrow">POST REACTIONS</p><h2>Reactions</h2></div><button type="button" class="close" aria-label="Close">×</button></div><div class="comments-list"><p class="comment-empty">Loading reactions…</p></div></div>';
   document.body.append(dialog);
   const close = () => { dialog.close(); dialog.remove(); };
   dialog.querySelector(".close").onclick = close;
   dialog.addEventListener("click",e=>{if(e.target===dialog)close();});
   dialog.showModal();
   const list = dialog.querySelector(".comments-list");
-  if (!ids.length) { list.innerHTML='<p class="comment-empty">No likes yet.</p>'; return; }
-  const people = await Promise.all(ids.map(async uid=>{
-    try {
-      const snap=await getDoc(doc(db,"publicProfiles",uid));
-      const data=snap.exists()?snap.data():{};
-      return {uid,name:data.displayName||data.name||"MILOOP member"};
-    } catch { return {uid,name:"MILOOP member"}; }
-  }));
-  list.innerHTML=people.map(person=>'<button type="button" class="comment-item profile-person-link" data-profile-uid="'+safe(person.uid)+'"><div class="comment-avatar">'+safe(initials(person.name))+'</div><div class="comment-body"><b>'+safe(person.name)+'</b><small>View profile</small></div></button>').join("");
+  const reactionInfo = {
+    like:{emoji:"👍",label:"Like"}, love:{emoji:"❤️",label:"Love"},
+    care:{emoji:"🥰",label:"Care"}, haha:{emoji:"😂",label:"Haha"},
+    wow:{emoji:"😮",label:"Wow"}, sad:{emoji:"😢",label:"Sad"},
+    angry:{emoji:"😡",label:"Angry"}
+  };
+  try {
+    const snap = await getDocs(collection(db,"posts",post.id,"reactions"));
+    if (!snap.size) { list.innerHTML='<p class="comment-empty">No reactions yet.</p>'; return; }
+    const people = await Promise.all(snap.docs.map(async reactionDoc=>{
+      const reaction = reactionDoc.data();
+      const uid = reaction.uid || reactionDoc.id;
+      let name = "MILOOP member";
+      try {
+        const profile = await getDoc(doc(db,"publicProfiles",uid));
+        if(profile.exists()) {
+          const data=profile.data();
+          name=data.displayName||data.name||name;
+        }
+      } catch(error) { console.warn("Could not load reaction profile:",error); }
+      const info = reactionInfo[reaction.type] || reactionInfo.like;
+      return {uid,name,...info};
+    }));
+    const counts = people.reduce((out,person)=>{out[person.label]=(out[person.label]||0)+1;return out;},{});
+    const summary = Object.entries(counts).map(([label,count])=>{
+      const info=Object.values(reactionInfo).find(x=>x.label===label);
+      return info.emoji+" "+count;
+    }).join("  ·  ");
+    list.innerHTML = '<p class="reaction-summary">'+safe(summary)+'</p>'+people.map(person=>
+      '<button type="button" class="comment-item profile-person-link" data-profile-uid="'+safe(person.uid)+'"><div class="comment-avatar">'+safe(initials(person.name))+'</div><div class="comment-body"><b>'+safe(person.name)+'</b><small>'+safe(person.label)+'</small></div><span class="reaction-person-emoji" aria-label="'+safe(person.label)+'">'+person.emoji+'</span></button>'
+    ).join("");
+    dialog.querySelector("h2").textContent = "Reactions · "+people.length;
+  } catch(error) {
+    console.error("Could not load post reactions:",error);
+    list.innerHTML='<p class="comment-empty">Could not load reactions. Please try again.</p>';
+  }
 }
 
 async function openComments(post) {
