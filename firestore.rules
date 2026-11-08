@@ -296,6 +296,23 @@ service cloud.firestore {
     match /admins/{adminUid} { allow read: if activeMember() && request.auth.uid == adminUid; allow write: if false; }
     match /memberControls/{memberUid} { allow read: if isAdmin(); allow create, update: if isAdmin() && request.resource.data.uid == memberUid && request.resource.data.active is bool && request.resource.data.updatedBy == request.auth.uid; allow delete: if false; }
 
+    match /announcements/{announcementId} {
+      allow read: if activeMember();
+      allow create: if isAdmin()
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 90
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 600
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.active == true;
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active']);
+      allow delete: if isAdmin();
+    }
+
     match /reports/{reportId} {
       allow create: if activeMember()
         && request.resource.data.reporterUid == request.auth.uid
