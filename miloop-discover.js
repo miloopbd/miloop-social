@@ -65,16 +65,18 @@ async function groups(){
  const list=$("mdGroupList");if(!list)return;
  if(snap.empty){list.innerHTML='<div class="md-empty">No groups yet. Create the first community!</div>';return;}
  list.innerHTML="";
- for(const d of snap.docs){const g=d.data(),joined=await getDoc(doc(db,"groups",d.id,"members",user.uid));const card=document.createElement("article");card.className="md-card";card.innerHTML='<h3>'+esc(g.name||"Community")+'</h3><p>'+esc(g.description||"A MILOOP community group.")+'</p><small class="md-muted">Created by '+(g.createdBy===user.uid?"you":"a MILOOP member")+'</small><div><button class="md-btn" data-md-view="'+d.id+'">Open group</button><button class="md-btn alt" data-md-join="'+d.id+'" data-joined="'+joined.exists()+'">'+(joined.exists()?"Leave group":"Join group")+'</button></div>';list.append(card);}
+ for(const d of snap.docs){const g=d.data(),joined=await getDoc(doc(db,"groups",d.id,"members",user.uid));const card=document.createElement("article");card.className="md-card";card.innerHTML='<h3>'+esc(g.name||"Community")+(g.verified?'<span class="md-badge" style="margin-left:7px">✓ Verified group</span>':'')+'</h3><p>'+esc(g.description||"A MILOOP community group.")+'</p><small class="md-muted">Created by '+(g.createdBy===user.uid?"you":"a MILOOP member")+'</small><div><button class="md-btn" data-md-view="'+d.id+'">Open group</button><button class="md-btn alt" data-md-join="'+d.id+'" data-joined="'+joined.exists()+'">'+(joined.exists()?"Leave group":"Join group")+'</button>'+(admin?'<button class="md-btn alt" data-md-delete-group="'+d.id+'">Delete group</button>':'')+'</div>';list.append(card);}
  list.querySelectorAll("[data-md-join]").forEach(b=>b.onclick=async()=>{const id=b.dataset.mdJoin;try{const ref=doc(db,"groups",id,"members",user.uid);if(b.dataset.joined==="true"){await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js").then(m=>m.deleteDoc(ref));toast("You left the group.");}else{await setDoc(ref,{uid:user.uid,joinedAt:serverTimestamp()});toast("You joined the group.");}groups();}catch(e){toast("Group action failed: "+(e.code||e.message));}});
+ list.querySelectorAll("[data-md-delete-group]").forEach(b=>b.onclick=async()=>{const id=b.dataset.mdDeleteGroup;if(!confirm("Delete this group? This removes it from MILOOP groups."))return;try{await deleteDoc(doc(db,"groups",id));toast("Group deleted.");groups();}catch(e){toast("Could not delete group: "+(e.code||e.message));}});
  list.querySelectorAll("[data-md-view]").forEach(b=>b.onclick=()=>groupDetail(b.dataset.mdView));
 }
 async function groupDetail(id){
  const member=await getDoc(doc(db,"groups",id,"members",user.uid));
  if(!member.exists()){setContent('<div class="md-card"><p>Join this group to read and write its discussions.</p><button class="md-btn" id="mdJoinNow">Join group</button><button class="md-btn alt" id="mdBackGroups">Back</button></div>');$("mdJoinNow").onclick=async()=>{try{await setDoc(doc(db,"groups",id,"members",user.uid),{uid:user.uid,joinedAt:serverTimestamp()});groupDetail(id);}catch(e){toast("Could not join: "+(e.code||e.message));}};$("mdBackGroups").onclick=groups;return;}
  const group=(await getDoc(doc(db,"groups",id))).data()||{};
- setContent('<button class="md-btn alt" id="mdBackGroups">← Groups</button><div class="md-card"><h3>'+esc(group.name||"Group")+'</h3><p>'+esc(group.description||"")+'</p><form id="mdGroupPost" class="md-form"><textarea id="mdGroupPostText" maxlength="600" placeholder="Share something with this group…" required></textarea><button class="md-btn">Post to group</button></form></div><div id="mdGroupPosts">Loading discussions…</div>');
+ setContent('<button class="md-btn alt" id="mdBackGroups">← Groups</button><div class="md-card"><h3>'+esc(group.name||"Group")+(group.verified?'<span class="md-badge" style="margin-left:7px">✓ Verified group</span>':'')+'</h3><p>'+esc(group.description||"")+'</p>'+((group.createdBy===user.uid||admin)&&!group.verified?'<form id="mdGroupVerifyForm" class="md-form"><textarea id="mdGroupVerifyReason" maxlength="300" placeholder="Why should this group be verified? (10–300 characters)" required></textarea><button class="md-btn alt">Apply for group verification</button></form>':'')+'<form id="mdGroupPost" class="md-form"><textarea id="mdGroupPostText" maxlength="600" placeholder="Share something with this group…" required></textarea><button class="md-btn">Post to group</button></form></div><div id="mdGroupPosts">Loading discussions…</div>');
  $("mdBackGroups").onclick=groups;
+ $("mdGroupVerifyForm")?.addEventListener("submit",async e=>{e.preventDefault();const reason=$("mdGroupVerifyReason").value.trim();if(reason.length<10){toast("Please add at least 10 characters.");return;}try{await setDoc(doc(db,"groupVerificationRequests",id),{groupId:id,groupName:group.name||"Community",createdBy:group.createdBy,requestedBy:user.uid,reason,status:"pending",createdAt:serverTimestamp()});toast("Group verification request sent.");groupDetail(id);}catch(err){toast("Group verification request failed: "+(err.code||err.message));}});
  $("mdGroupPost").onsubmit=async e=>{e.preventDefault();const text=$("mdGroupPostText").value.trim();if(!text)return;const btn=e.submitter;if(btn)btn.disabled=true;try{await addDoc(collection(db,"groups",id,"posts"),{uid:user.uid,displayName:user.displayName||user.email?.split("@")[0]||"MILOOP member",text,createdAt:serverTimestamp()});toast("Group post published.");groupDetail(id);}catch(err){toast("Could not post: "+(err.code||err.message));}finally{if(btn)btn.disabled=false;}};
  const posts=await getDocs(query(collection(db,"groups",id,"posts"),orderBy("createdAt","desc"),limit(40)));
  const holder=$("mdGroupPosts");if(posts.empty){holder.innerHTML='<div class="md-empty">No discussions yet.</div>';return;}
@@ -130,12 +132,24 @@ function tools(){
 }
 async function reviews(){
  if(!admin){setContent('<div class="md-empty">Admin access required.</div>');return;}
- setContent('<div class="md-card"><h3>Verification requests</h3><p>Review member requests and approve only when identity is appropriately verified.</p></div><div id="mdReviewList">Loading requests…</div>');
- const snap=await getDocs(query(collection(db,"verificationRequests"),where("status","==","pending"),limit(50)));
- const list=$("mdReviewList");if(snap.empty){list.innerHTML='<div class="md-empty">No pending verification requests.</div>';return;}
- list.innerHTML=snap.docs.map(d=>'<article class="md-card"><b>'+esc(d.id)+'</b><p>'+esc(d.data().reason||"")+'</p><button class="md-btn" data-md-approve="'+esc(d.id)+'">Approve & verify</button><button class="md-btn alt" data-md-reject="'+esc(d.id)+'">Decline</button></article>').join("");
+ setContent('<div class="md-card"><h3>Member verification requests</h3><p>Review member requests and approve only after appropriate checks.</p></div><div id="mdReviewList">Loading member requests…</div><div class="md-card"><h3>Group verification requests</h3><p>Review applications submitted by group creators or administrators.</p></div><div id="mdGroupReviewList">Loading group requests…</div>');
+ const [members,groupsSnap]=await Promise.all([getDocs(query(collection(db,"verificationRequests"),where("status","==","pending"),limit(50))),getDocs(query(collection(db,"groupVerificationRequests"),where("status","==","pending"),limit(50)))]);
+ const list=$("mdReviewList");
+ list.innerHTML=members.empty?'<div class="md-empty">No pending member requests.</div>':members.docs.map(d=>'<article class="md-card"><b>'+esc(d.id)+'</b><p>'+esc(d.data().reason||"")+'</p><button class="md-btn" data-md-approve="'+esc(d.id)+'">Approve & verify</button><button class="md-btn alt" data-md-reject="'+esc(d.id)+'">Decline</button></article>').join("");
  list.querySelectorAll("[data-md-approve]").forEach(b=>b.onclick=()=>reviewRequest(b.dataset.mdApprove,true));
  list.querySelectorAll("[data-md-reject]").forEach(b=>b.onclick=()=>reviewRequest(b.dataset.mdReject,false));
+ const gl=$("mdGroupReviewList");
+ gl.innerHTML=groupsSnap.empty?'<div class="md-empty">No pending group requests.</div>':groupsSnap.docs.map(d=>{const x=d.data();return '<article class="md-card"><b>'+esc(x.groupName||"Community")+'</b><p>'+esc(x.reason||"")+'</p><small class="md-muted">Group ID: '+esc(x.groupId||d.id)+' · Requested by: '+esc(x.requestedBy||"")+'</small><div><button class="md-btn" data-md-group-approve="'+esc(d.id)+'">Approve group</button><button class="md-btn alt" data-md-group-reject="'+esc(d.id)+'">Decline</button></div></article>';}).join("");
+ gl.querySelectorAll("[data-md-group-approve]").forEach(b=>b.onclick=()=>reviewGroupRequest(b.dataset.mdGroupApprove,true));
+ gl.querySelectorAll("[data-md-group-reject]").forEach(b=>b.onclick=()=>reviewGroupRequest(b.dataset.mdGroupReject,false));
+}
+async function reviewGroupRequest(requestId,approve){
+ try{
+  const req=(await getDoc(doc(db,"groupVerificationRequests",requestId))).data();if(!req?.groupId)throw new Error("Group request is missing its group ID.");
+  if(approve)await updateDoc(doc(db,"groups",req.groupId),{verified:true,verifiedAt:serverTimestamp()});
+  await updateDoc(doc(db,"groupVerificationRequests",requestId),{status:approve?"approved":"rejected",reviewedBy:user.uid,reviewedAt:serverTimestamp()});
+  toast(approve?"Group verified.":"Group request declined.");reviews();
+ }catch(e){toast("Group review failed: "+(e.code||e.message));}
 }
 async function reviewRequest(uid,approve){
  try{
