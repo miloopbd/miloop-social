@@ -9,6 +9,10 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/chats/$(chatId))
         && get(/databases/$(database)/documents/chats/$(chatId)).data.members.hasAny([request.auth.uid]);
     }
+    function isGroupMember(groupId) {
+      return activeMember()
+        && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
 
     match /users/{userId} {
       allow read: if activeMember() && request.auth.uid == userId;
@@ -43,7 +47,23 @@ service cloud.firestore {
 
     match /publicProfiles/{userId} {
       allow read: if activeMember();
-      allow create, update: if activeMember() && request.auth.uid == userId
+      allow create: if activeMember() && request.auth.uid == userId
+        && !('verified' in request.resource.data)
+        && request.resource.data.uid == userId
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 60
+        && request.resource.data.bio is string
+        && request.resource.data.bio.size() <= 180
+        && (!('school' in request.resource.data) || request.resource.data.school is string)
+        && (!('class' in request.resource.data) || request.resource.data.class is string)
+        && (!('publicFields' in request.resource.data) || request.resource.data.publicFields is list)
+        && (!('dateOfBirth' in request.resource.data) || request.resource.data.dateOfBirth is string)
+        && (!('college' in request.resource.data) || request.resource.data.college is string)
+        && (!('university' in request.resource.data) || request.resource.data.university is string)
+        && (!('city' in request.resource.data) || request.resource.data.city is string);
+      allow update: if activeMember() && request.auth.uid == userId
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verified','verifiedAt'])
         && request.resource.data.uid == userId
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() > 0
@@ -295,6 +315,59 @@ service cloud.firestore {
     }
     match /admins/{adminUid} { allow read: if activeMember() && request.auth.uid == adminUid; allow write: if false; }
     match /memberControls/{memberUid} { allow read: if isAdmin(); allow create, update: if isAdmin() && request.resource.data.uid == memberUid && request.resource.data.active is bool && request.resource.data.updatedBy == request.auth.uid; allow delete: if false; }
+
+    // Member-created groups and member-only group discussions.
+    match /groups/{groupId} {
+      allow read: if activeMember();
+      allow create: if activeMember()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 3
+        && request.resource.data.name.size() <= 50
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 240
+        && request.resource.data.createdAt == request.time;
+      allow update: if activeMember() && resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if isAdmin() || (activeMember() && resource.data.createdBy == request.auth.uid);
+
+      match /members/{memberUid} {
+        allow read: if activeMember();
+        allow create: if activeMember() && request.auth.uid == memberUid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.joinedAt == request.time;
+        allow delete: if activeMember() && request.auth.uid == memberUid;
+        allow update: if false;
+      }
+      match /posts/{postId} {
+        allow read: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.displayName is string
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 600
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if isGroupMember(groupId) && resource.data.uid == request.auth.uid;
+      }
+    }
+
+    // Verification is requested by the member and granted only by an admin.
+    match /verificationRequests/{memberUid} {
+      allow read: if activeMember() && (request.auth.uid == memberUid || isAdmin());
+      allow create: if activeMember() && request.auth.uid == memberUid
+        && request.resource.data.uid == memberUid
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() >= 10
+        && request.resource.data.reason.size() <= 300
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt'])
+        && request.resource.data.reviewedBy == request.auth.uid
+        && request.resource.data.status in ['approved','rejected'];
+      allow delete: if false;
+    }
 
     match /announcements/{announcementId} {
       allow read: if activeMember();
