@@ -34,7 +34,7 @@ function render() {
     const reactionNames = {like:"👍 Like",love:"❤️ Love",care:"🥰 Care",haha:"😂 Haha",wow:"😮 Wow",sad:"😢 Sad",angry:"😡 Angry"};
     return `<article class="post" data-id="${safe(p.id)}" data-author-uid="${safe(p.authorUid)}">
       <div class="post-head"><div class="avatar">${safe(initials(p.authorName))}</div>
-      <div class="post-author"><b><button type="button" class="post-author-link" data-profile-uid="${safe(p.authorUid)}">${safe(p.authorName||"MILOOP member")}</button></b><small>${safe(relativeTime(p.createdAt))}</small></div>
+      <div class="post-author"><b><button type="button" class="post-author-link" data-profile-uid="${safe(p.authorUid)}">${safe(p.authorName||"MILOOP member")}</button>${p.isVerified?'<span class="md-verified" title="Verified MILOOP profile">✓ Verified</span>':""}</b><small>${safe(relativeTime(p.createdAt))}</small></div>
       <div class="post-menu-wrap"><button type="button" class="post-menu" data-action="menu" aria-label="Post options" aria-expanded="false">•••</button>
         <div class="post-menu-list" hidden>
           <button type="button" data-action="save">▱ <span>Save post</span></button>
@@ -387,6 +387,8 @@ $("invite").addEventListener("click",async()=>{
 onAuthStateChanged(auth,user=>{currentUser=user;render();watchAnnouncements();});
 stopPosts=onSnapshot(query(collection(db,"posts"),orderBy("createdAt","desc")),async snapshot=>{
   posts=snapshot.docs.map(d=>({id:d.id,...d.data()}));
+  const authorIds=[...new Set(posts.map(p=>p.authorUid).filter(Boolean))];
+  await Promise.all(authorIds.map(async uid=>{try{const profile=await getDoc(doc(db,"publicProfiles",uid));const verified=profile.exists()&&profile.data().verified===true;posts.filter(p=>p.authorUid===uid).forEach(p=>p.isVerified=verified);}catch(e){console.warn("Could not load verified profile flag:",e);}}));
   if(currentUser){await Promise.all(posts.map(async p=>{try{const mine=await getDoc(doc(db,"posts",p.id,"reactions",currentUser.uid));p.myReaction=mine.exists()?mine.data().type:"";}catch(err){console.warn("Could not load reaction:",err);}}));}
   render();
   const targetPost=new URLSearchParams(location.search).get("post");if(targetPost){const card=[...document.querySelectorAll("[data-id]")].find(el=>el.dataset.id===targetPost);if(card){card.scrollIntoView({behavior:"smooth",block:"center"});card.style.outline="3px solid #155eef";card.style.outlineOffset="3px";}}
