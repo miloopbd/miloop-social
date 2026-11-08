@@ -21,7 +21,7 @@ document.body.append(panel);
 
 const styles = document.createElement("style");
 styles.textContent = `
-.profile-name-link{border:0;background:transparent;color:#155eef;font:inherit;font-weight:700;padding:0;cursor:pointer;text-align:left}.profile-name-link:hover{text-decoration:underline}
+.md-verified{display:inline-flex;align-items:center;margin-left:6px;padding:3px 7px;border-radius:20px;background:#eaf2ff;color:#155eef;font-size:9px;font-weight:800;vertical-align:middle}.profile-name-link{border:0;background:transparent;color:#155eef;font:inherit;font-weight:700;padding:0;cursor:pointer;text-align:left}.profile-name-link:hover{text-decoration:underline}
 .social-panel{display:none;position:fixed;z-index:40;right:16px;top:82px;width:min(470px,calc(100vw - 24px));max-height:82vh;overflow:auto;background:#fff;border:1px solid #e4eaf4;border-radius:16px;box-shadow:0 18px 60px #14264a30;padding:18px}
 .social-panel.open{display:block}.social-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .social-panel-head h2{font-size:16px;margin:0;color:#17233d}.social-panel-head button{border:0;border-radius:50%;width:30px;height:30px;background:#f1f4fa;font-size:20px;color:#71809a}
@@ -124,7 +124,7 @@ async function showMemberProfile(uid){
     const publicFields=Array.isArray(p.publicFields)?p.publicFields:null;
     const details=fields.filter(x=>p[x[1]] && (x[1]==="dateOfBirth" ? mine : (publicFields ? publicFields.includes(x[1]) : true))).map(x=>'<div class="social-item"><b>'+x[0]+'</b><small>'+escapeHtml(p[x[1]])+'</small></div>').join("");
     openPanel(mine?"My profile":(p.displayName||"Member profile"),
-      '<div style="text-align:center;padding:10px"><div class="chat-avatar" style="width:64px;height:64px;margin:auto;font-size:22px">'+escapeHtml((p.displayName||"M").charAt(0).toUpperCase())+'</div><h2>'+escapeHtml(p.displayName||"MILOOP member")+'</h2><p>'+escapeHtml(p.bio||"")+'</p></div>'+
+      '<div style="text-align:center;padding:10px"><div class="chat-avatar" style="width:64px;height:64px;margin:auto;font-size:22px">'+escapeHtml((p.displayName||"M").charAt(0).toUpperCase())+'</div><h2>'+escapeHtml(p.displayName||"MILOOP member")+(p.verified?'<span class="md-verified" title="Verified profile">✓ Verified</span>':'')+'</h2><p>'+escapeHtml(p.bio||"")+'</p></div>'+
       (mine?'<button class="action" id="editProfileDetails" style="display:block;width:100%;margin:8px 0 14px">✎ Edit profile</button><button class="action secondary" id="shareProfileLink" style="display:block;width:100%;margin:0 0 14px">↗ Share profile</button>':'<div style="display:flex;gap:7px;margin:8px 0 14px"><button class="action" id="profileFollowToggle" style="flex:1">Loading…</button><button class="action secondary" id="messageProfile" style="flex:1">Message</button></div>')+
       '<div class="social-item"><b>Profile ID</b><small>'+escapeHtml(uid)+'</small></div><div id="profileFollowStats" style="display:flex;gap:8px;margin:10px 0"><button class="action secondary" id="showFollowers">Followers · …</button><button class="action secondary" id="showFollowing">Following · …</button></div>'+details+
       '<h3 style="font-size:13px">Posts</h3><div id="memberPosts">Loading…</div>');
