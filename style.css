@@ -69,3 +69,12 @@ body{
 .post-actions>button{flex:1;border:0;background:transparent;border-radius:7px;padding:7px;color:#68758c;font:600 10px "DM Sans";cursor:pointer}
 .post-actions>button:hover{background:#f5f7fb}
 @media(max-width:390px){.reaction-picker{gap:0;padding:5px}.reaction-picker button{width:30px;height:32px;font-size:19px}}
+
+/* Comment reaction picker and reaction summaries */
+.comment-reaction-picker{display:flex;flex-wrap:wrap;gap:7px;margin:7px 0 4px;padding:8px 10px;background:#f5f7fb;border:1px solid #e8edf5;border-radius:14px}
+.comment-reaction-picker[hidden]{display:none}
+.comment-reaction-picker button{border:0;background:#fff;border-radius:50%;width:34px;height:34px;font-size:19px;cursor:pointer}
+.comment-reaction-picker button:active{transform:scale(.94)}
+.reaction-summary{margin:0 0 9px;padding:8px 10px;background:#f5f7fb;border-radius:10px;color:#53627a;font-size:13px;font-weight:700}
+.reaction-person-emoji{margin-left:auto;font-size:20px;align-self:center}
+.comment-tools button[data-comment-reaction-list]{font-weight:700;color:#52617a}
