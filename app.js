@@ -79,7 +79,7 @@ async function showPostLikers(post) {
   try {
     const snap = await getDocs(collection(db,"posts",post.id,"reactions"));
     let people = await Promise.all(snap.docs.map(async d=>{
-      const v=d.data(),uid=v.uid||d.id;let name="MILOOP member";
+      const v=d.data(),uid=v.uid||d.id;let name=v.displayName||"MILOOP member";
       try{const profile=await getDoc(doc(db,"publicProfiles",uid));if(profile.exists()){const x=profile.data();name=x.displayName||x.name||name;}}catch(e){console.warn(e);}
       const [emoji,label]=info[v.type]||info.like;return {uid,name,emoji,label};
     }));
@@ -179,7 +179,7 @@ $("commentsList").addEventListener("click",async e=>{
       const ref=doc(db,"posts",activePostId,"comments",commentId,"reactions",currentUser.uid);
       const existing=await getDoc(ref);
       if(existing.exists()&&existing.data().type===type)await deleteDoc(ref);
-      else await setDoc(ref,{uid:currentUser.uid,type,createdAt:serverTimestamp()});
+      else await setDoc(ref,{uid:currentUser.uid,displayName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",type,createdAt:serverTimestamp()});
       const active=posts.find(p=>p.id===activePostId);if(active)openComments(active);
     } else if(reactList){
       await showCommentReactions(activePostId,reactList.dataset.commentReactionList);
@@ -259,7 +259,7 @@ $("posts").addEventListener("click",async e=>{
         if(liked)await updateDoc(doc(db,"posts",p.id),{likes:arrayRemove(currentUser.uid),likeCount:Math.max(0,(p.likeCount||0)-1)});
         p.myReaction="";
       }else{
-        await setDoc(ref,{uid:currentUser.uid,type,createdAt:serverTimestamp()});
+        await setDoc(ref,{uid:currentUser.uid,displayName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",type,createdAt:serverTimestamp()});
         if(!liked)await updateDoc(doc(db,"posts",p.id),{likes:arrayUnion(currentUser.uid),likeCount:(p.likeCount||0)+1});
         p.myReaction=type;
         if(!liked&&p.authorUid&&p.authorUid!==currentUser.uid)await addDoc(collection(db,"users",p.authorUid,"notifications"),{type:"like",fromUid:currentUser.uid,postId:p.id,text:(currentUser.displayName||"A member")+" reacted to your post.",createdAt:serverTimestamp(),read:false}).catch(err=>console.warn("Reaction notification failed:",err));
