@@ -9,6 +9,8 @@ const $ = id => document.getElementById(id);
 let currentUser = null;
 let stopListener = null;
 let stopChat = null;
+let stopPresence = null;
+let stopTyping = null;
 
 const panel = document.createElement("section");
 panel.id = "socialPanel";
@@ -48,6 +50,8 @@ function escapeHtml(value){
 function openPanel(title,html){
   if(stopListener){stopListener();stopListener=null;}
   if(stopChat){stopChat();stopChat=null;}
+  if(stopPresence){stopPresence();stopPresence=null;}
+  if(stopTyping){stopTyping();stopTyping=null;}
   $("socialPanelTitle").textContent=title;
   $("socialPanelBody").innerHTML=html;
   panel.classList.add("open");
@@ -56,6 +60,8 @@ function closePanel(){
   panel.classList.remove("open");
   if(stopListener){stopListener();stopListener=null;}
   if(stopChat){stopChat();stopChat=null;}
+  if(stopPresence){stopPresence();stopPresence=null;}
+  if(stopTyping){stopTyping();stopTyping=null;}
 }
 $("socialPanelClose").addEventListener("click",closePanel);
 function needUser(){
@@ -217,77 +223,75 @@ async function getOrCreateChat(otherUid){
 
 async function openChat(otherUid,otherName){
   try{
-    const chat=await getOrCreateChat(otherUid);
-    const chatId=chat.chatId,chatRef=chat.chatRef;
-    $("socialPanelTitle").innerHTML='<button type="button" class="profile-name-link" id="chatHeaderProfile" style="font-size:15px" data-profile-uid="'+escapeHtml(otherUid)+'">'+escapeHtml(otherName||"Private chat")+'</button>';
-    $("socialPanelBody").innerHTML='<button class="action secondary" id="backToChats">← All chats</button>'+
-      '<div class="social-chat-log" id="chatLog">Loading messages…</div>'+
-      '<form id="chatSendForm" class="chat-send"><input id="chatMessage" maxlength="1000" placeholder="Write a message…" required><button class="action" type="submit">Send</button></form>';
+    const chat=await getOrCreateChat(otherUid),chatId=chat.chatId,chatRef=chat.chatRef;
+    $("socialPanelTitle").innerHTML='<button type="button" class="profile-name-link" style="font-size:15px" data-profile-uid="'+escapeHtml(otherUid)+'">'+escapeHtml(otherName||"Private chat")+'</button><small id="chatPresence" class="chat-presence">Checking status…</small>';
+    $("socialPanelBody").innerHTML='<button class="action secondary" id="backToChats">← All chats</button><div class="social-chat-log" id="chatLog">Loading messages…</div><div id="typingStatus" class="typing-status"></div><div id="replyPreview" class="reply-preview" hidden></div><form id="chatSendForm" class="chat-send"><input id="chatMessage" maxlength="1000" placeholder="Write a message…" required><button class="action" type="submit">Send</button></form>';
     $("backToChats").onclick=handlers.messages;
     const messagesRef=collection(db,"chats",chatId,"messages");
-    if(stopChat)stopChat();
-    let messageCache={};
+    if(stopChat)stopChat();if(stopPresence)stopPresence();if(stopTyping)stopTyping();
+    let messageCache={},replyTarget=null,typingTimer=null;
+    const presenceEl=$("chatPresence");
+    stopPresence=onSnapshot(doc(db,"presence",otherUid),snap=>{
+      const p=snap.exists()?snap.data():{};
+      if(presenceEl){presenceEl.textContent=p.isOnline?"● Online":(p.lastSeenAt?.toDate?"Last seen "+p.lastSeenAt.toDate().toLocaleString():"Offline");presenceEl.classList.toggle("online",!!p.isOnline);}
+    },()=>{if(presenceEl)presenceEl.textContent="Status unavailable";});
+    stopTyping=onSnapshot(collection(db,"chats",chatId,"typing"),snap=>{
+      const status=$("typingStatus");if(!status)return;
+      const active=snap.docs.some(d=>d.id===otherUid&&d.data().typing===true&&d.data().updatedAt?.toDate&&Date.now()-d.data().updatedAt.toDate().getTime()<9000);
+      status.textContent=active?(escapeHtml(otherName||"Member")+" is typing…"):"";
+    });
     stopChat=onSnapshot(query(messagesRef,orderBy("createdAt","asc"),limit(100)),snap=>{
-      const log=$("chatLog");if(!log)return;
-      messageCache={};
+      const log=$("chatLog");if(!log)return;messageCache={};
       log.innerHTML=snap.empty?"<p>No messages yet. Say hello!</p>":snap.docs.map(d=>{
-        const m=d.data();messageCache[d.id]=m;
-        const mine=m.uid===currentUser.uid;
+        const m=d.data();messageCache[d.id]=m;const mine=m.uid===currentUser.uid;
         const time=m.createdAt?.toDate?.().toLocaleString()||"Sending…";
-        const tools=(mine?'<button data-msg-action="edit" data-id="'+escapeHtml(d.id)+'">Edit</button><button data-msg-action="delete" data-id="'+escapeHtml(d.id)+'">Delete</button>':'')+
-          '<button data-msg-action="forward" data-id="'+escapeHtml(d.id)+'">Forward</button>';
-        return '<div class="'+(mine?"mine":"theirs")+'"><div class="bubble"><p>'+escapeHtml(m.text)+(m.forwarded?'<small>↪ Forwarded</small>':"")+'</p><small>'+time+(m.edited?" · Edited":"")+'</small><div class="msg-tools">'+tools+'</div></div></div>';
+        const seen=mine&&(m.seenBy||[]).includes(otherUid);
+        const quote=m.replyToText?'<div class="reply-quote"><b>↩ Reply</b><span>'+escapeHtml(m.replyToText)+'</span></div>':"";
+        const tools=(mine?'<button data-msg-action="edit" data-id="'+escapeHtml(d.id)+'">Edit</button><button data-msg-action="delete" data-id="'+escapeHtml(d.id)+'">Delete</button>':"")+'<button data-msg-action="reply" data-id="'+escapeHtml(d.id)+'">Reply</button><button data-msg-action="forward" data-id="'+escapeHtml(d.id)+'">Forward</button>';
+        return '<div class="'+(mine?"mine":"theirs")+'"><div class="bubble">'+quote+'<p>'+escapeHtml(m.text)+(m.forwarded?'<small>↪ Forwarded</small>':"")+'</p><small>'+time+(m.edited?" · Edited":"")+(mine?(seen?" · ✓✓ Seen":" · ✓ Sent"):"")+'</small><div class="msg-tools">'+tools+'</div></div></div>';
       }).join("");
       log.scrollTop=log.scrollHeight;
+      snap.docs.forEach(d=>{const m=d.data();if(m.uid!==currentUser.uid&&!(m.seenBy||[]).includes(currentUser.uid)){updateDoc(doc(db,"chats",chatId,"messages",d.id),{seenBy:[...(m.seenBy||[]),currentUser.uid],seenAt:serverTimestamp()}).catch(e=>console.warn("Seen update failed:",e));}});
     },err=>{console.error(err);toast("Could not load messages: "+(err.code||err.message));});
+    const input=$("chatMessage"),typingRef=doc(db,"chats",chatId,"typing",currentUser.uid);
+    input.addEventListener("input",()=>{
+      setDoc(typingRef,{uid:currentUser.uid,typing:!!input.value.trim(),updatedAt:serverTimestamp()},{merge:true}).catch(()=>{});
+      clearTimeout(typingTimer);typingTimer=setTimeout(()=>setDoc(typingRef,{uid:currentUser.uid,typing:false,updatedAt:serverTimestamp()},{merge:true}).catch(()=>{}),2200);
+    });
     $("chatLog").onclick=async event=>{
       const control=event.target.closest("[data-msg-action]");if(!control)return;
       const id=control.dataset.id,action=control.dataset.msgAction,m=messageCache[id];if(!m)return;
-      if(action==="edit"){
-        if(m.uid!==currentUser.uid)return;
-        const edited=window.prompt("Edit your message",m.text);
-        if(edited===null)return;
-        if(!edited.trim()){toast("Message cannot be empty.");return;}
-        try{await updateDoc(doc(db,"chats",chatId,"messages",id),{text:edited.trim().slice(0,1000),edited:true,editedAt:serverTimestamp()});}
-        catch(e){console.error(e);toast("Edit failed: "+(e.code||e.message));}
+      if(action==="reply"){
+        replyTarget={uid:m.uid,text:m.text};const preview=$("replyPreview");preview.hidden=false;
+        preview.innerHTML='<span><b>Replying to '+(m.uid===currentUser.uid?"yourself":escapeHtml(otherName||"member"))+'</b><small>'+escapeHtml(m.text.slice(0,120))+'</small></span><button type="button" id="cancelReply">×</button>';
+        $("cancelReply").onclick=()=>{replyTarget=null;preview.hidden=true;preview.innerHTML="";};input.focus();
+      }else if(action==="edit"){
+        if(m.uid!==currentUser.uid)return;const edited=window.prompt("Edit your message",m.text);if(edited===null)return;if(!edited.trim()){toast("Message cannot be empty.");return;}
+        try{await updateDoc(doc(db,"chats",chatId,"messages",id),{text:edited.trim().slice(0,1000),edited:true,editedAt:serverTimestamp()});}catch(e){toast("Edit failed: "+(e.code||e.message));}
       }else if(action==="delete"){
-        if(m.uid!==currentUser.uid)return;
-        if(!window.confirm("Delete this message?"))return;
-        try{await deleteDoc(doc(db,"chats",chatId,"messages",id));toast("Message deleted.");}
-        catch(e){console.error(e);toast("Delete failed: "+(e.code||e.message));}
+        if(m.uid!==currentUser.uid)return;if(!window.confirm("Delete this message?"))return;
+        try{await deleteDoc(doc(db,"chats",chatId,"messages",id));toast("Message deleted.");}catch(e){toast("Delete failed: "+(e.code||e.message));}
       }else if(action==="forward"){
-        const target=window.prompt("Enter the recipient's Profile ID to forward this message");
-        if(!target||!target.trim())return;
-        try{
-          const forwardChat=await getOrCreateChat(target.trim());
-          await addDoc(collection(db,"chats",forwardChat.chatId,"messages"),{uid:currentUser.uid,text:m.text,createdAt:serverTimestamp(),forwarded:true});
-          await updateDoc(forwardChat.chatRef,{updatedAt:serverTimestamp()});
-          toast("Message forwarded.");
-        }catch(e){console.error(e);toast("Forward failed: "+(e.code||e.message));}
+        const target=window.prompt("Enter the recipient's Profile ID to forward this message");if(!target||!target.trim())return;
+        try{const forwardChat=await getOrCreateChat(target.trim());await addDoc(collection(db,"chats",forwardChat.chatId,"messages"),{uid:currentUser.uid,text:m.text,createdAt:serverTimestamp(),seenBy:[],forwarded:true});await updateDoc(forwardChat.chatRef,{updatedAt:serverTimestamp(),lastMessage:m.text.slice(0,120),lastMessageAt:serverTimestamp(),lastMessageUid:currentUser.uid});toast("Message forwarded.");}catch(e){toast("Forward failed: "+(e.code||e.message));}
       }
     };
     $("chatSendForm").onsubmit=async e=>{
-      e.preventDefault();const input=$("chatMessage"),text=input.value.trim();if(!text)return;
-      const send=e.submitter;if(send)send.disabled=true;
+      e.preventDefault();const text=input.value.trim();if(!text)return;const send=e.submitter;if(send)send.disabled=true;
       try{
-        await addDoc(messagesRef,{uid:currentUser.uid,text,createdAt:serverTimestamp()});
-        await updateDoc(chatRef,{updatedAt:serverTimestamp()});
-        const chatData=(await getDoc(chatRef)).data();
-        const recipientUid=(chatData.members||[]).find(uid=>uid!==currentUser.uid);
-        if(recipientUid){
-          await addDoc(collection(db,"users",recipientUid,"notifications"),{
-            type:"message",fromUid:currentUser.uid,toUid:recipientUid,chatId,
-            text:(currentUser.displayName||"A member")+" sent you a message.",
-            createdAt:serverTimestamp(),read:false
-          });
-        }
-        input.value="";
+        const payload={uid:currentUser.uid,text,createdAt:serverTimestamp(),seenBy:[]};
+        if(replyTarget){payload.replyToUid=replyTarget.uid;payload.replyToText=replyTarget.text.slice(0,160);}
+        await addDoc(messagesRef,payload);
+        await updateDoc(chatRef,{updatedAt:serverTimestamp(),lastMessage:text.slice(0,120),lastMessageAt:serverTimestamp(),lastMessageUid:currentUser.uid});
+        const chatData=(await getDoc(chatRef)).data(),recipientUid=(chatData.members||[]).find(uid=>uid!==currentUser.uid);
+        if(recipientUid)await addDoc(collection(db,"users",recipientUid,"notifications"),{type:"message",fromUid:currentUser.uid,toUid:recipientUid,chatId,text:(currentUser.displayName||"A member")+" sent you a message.",createdAt:serverTimestamp(),read:false});
+        input.value="";replyTarget=null;$("replyPreview").hidden=true;$("replyPreview").innerHTML="";
+        await setDoc(typingRef,{uid:currentUser.uid,typing:false,updatedAt:serverTimestamp()},{merge:true});
       }catch(err){console.error("MILOOP message send error:",err);toast("Message failed: "+(err.code||err.message||"unknown error"));}
       finally{if(send)send.disabled=false;}
     };
   }catch(e){console.error("MILOOP chat open error:",e);toast("Could not open chat: "+(e.code||e.message||"unknown error"));}
 }
-
 handlers.messages=()=>{
   openPanel("Messenger",'<p>Search members by name or Profile ID, or open an existing conversation.</p>'+
     '<input id="memberSearch" placeholder="Search name or Profile ID…" autocomplete="off">'+
@@ -397,5 +401,8 @@ document.querySelector(".mobile-nav")?.addEventListener("click",event=>{
   handlers[action]?.();
 });
 ["profile","messages","notifications","allStories","explore","seePeople","photo","video","feeling"].forEach(button);
-onAuthStateChanged(auth,async user=>{currentUser=user;if(user){try{await ensurePublicProfile(user);}catch(e){console.error("Public profile sync failed:",e);}const targetProfile=new URLSearchParams(location.search).get("profile");if(targetProfile)showMemberProfile(targetProfile);}else if(new URLSearchParams(location.search).has("profile")){toast("Sign in to view this profile.");}});
+async function updateMyPresence(isOnline){if(!currentUser)return;try{await setDoc(doc(db,"presence",currentUser.uid),{uid:currentUser.uid,isOnline,lastSeenAt:serverTimestamp()},{merge:true});}catch(e){console.warn("Presence update failed:",e);}}
+document.addEventListener("visibilitychange",()=>{if(currentUser)updateMyPresence(document.visibilityState==="visible");});
+window.addEventListener("pagehide",()=>{if(currentUser)updateMyPresence(false);});
+onAuthStateChanged(auth,async user=>{currentUser=user;if(user){updateMyPresence(true);try{await ensurePublicProfile(user);}catch(e){console.error("Public profile sync failed:",e);}const targetProfile=new URLSearchParams(location.search).get("profile");if(targetProfile)showMemberProfile(targetProfile);}else if(new URLSearchParams(location.search).has("profile")){toast("Sign in to view this profile.");}});
 
