@@ -84,6 +84,7 @@ async function openAdmin(){
   try{
    if(toggle){
     const uid=toggle.dataset.memberToggle,wasActive=toggle.dataset.active==="true",nextActive=!wasActive;
+    if(uid===user.uid&&!nextActive){toast("You cannot suspend your own admin account.");return;}
     if(!confirm((nextActive?"Reactivate":"Suspend")+" this member?"))return;
     await setDoc(doc(db,"memberControls",uid),{uid,active:nextActive,updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});
     const row=memberRows.find(m=>m.uid===uid);if(row)row.active=nextActive;
