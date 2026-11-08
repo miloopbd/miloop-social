@@ -264,7 +264,9 @@ $("invite").addEventListener("click",async()=>{
   try{if(navigator.share)await navigator.share({title:"Join me on MILOOP",text:"Connect. Share. Belong.",url:location.href});else{await navigator.clipboard.writeText(location.href);toast("Page link copied.");}}catch(e){if(e.name!=="AbortError")toast("Could not share right now.");}
 });
 onAuthStateChanged(auth,user=>{currentUser=user;render();});
-stopPosts=onSnapshot(query(collection(db,"posts"),orderBy("createdAt","desc")),snapshot=>{
-  posts=snapshot.docs.map(d=>({id:d.id,...d.data()})); render();
+stopPosts=onSnapshot(query(collection(db,"posts"),orderBy("createdAt","desc")),async snapshot=>{
+  posts=snapshot.docs.map(d=>({id:d.id,...d.data()}));
+  if(currentUser){await Promise.all(posts.map(async p=>{try{const mine=await getDoc(doc(db,"posts",p.id,"reactions",currentUser.uid));p.myReaction=mine.exists()?mine.data().type:"";}catch(err){console.warn("Could not load reaction:",err);}}));}
+  render();
   const targetPost=new URLSearchParams(location.search).get("post");if(targetPost){const card=[...document.querySelectorAll("[data-id]")].find(el=>el.dataset.id===targetPost);if(card){card.scrollIntoView({behavior:"smooth",block:"center"});card.style.outline="3px solid #155eef";card.style.outlineOffset="3px";}}
 },error=>{console.error("MILOOP posts listener:",error);toast("Could not load posts. Check Firestore rules.");});
