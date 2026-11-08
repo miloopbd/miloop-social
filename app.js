@@ -339,18 +339,25 @@ $("posts").addEventListener("click",async e=>{
     }
     if(reactionButton){
       if(!currentUser){$("authOpen").click();return;}
-      const type=reactionButton.dataset.reaction,ref=doc(db,"posts",p.id,"reactions",currentUser.uid);
-      const existing=await getDoc(ref),liked=(p.likes||[]).includes(currentUser.uid);
+      const type=reactionButton.dataset.reaction;
+      const ref=p.isGroupPost?doc(db,"groups",p.groupId,"posts",p.groupPostId,"reactions",currentUser.uid):doc(db,"posts",p.id,"reactions",currentUser.uid);
+      const existing=await getDoc(ref),liked=!!p.myReaction||(p.likes||[]).includes(currentUser.uid);
       if(existing.exists()&&existing.data().type===type){
-        await deleteDoc(ref);
-        if(liked)await updateDoc(doc(db,"posts",p.id),{likes:arrayRemove(currentUser.uid),likeCount:Math.max(0,(p.likeCount||0)-1)});
-        p.myReaction="";
+        await deleteDoc(ref);p.myReaction="";p.likes=(p.likes||[]).filter(uid=>uid!==currentUser.uid);
       }else{
         await setDoc(ref,{uid:currentUser.uid,displayName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",type,createdAt:serverTimestamp()});
-        if(!liked)await updateDoc(doc(db,"posts",p.id),{likes:arrayUnion(currentUser.uid),likeCount:(p.likeCount||0)+1});
-        p.myReaction=type;
-        if(!liked&&p.authorUid&&p.authorUid!==currentUser.uid)await addDoc(collection(db,"users",p.authorUid,"notifications"),{type:"like",fromUid:currentUser.uid,postId:p.id,text:(currentUser.displayName||"A member")+" reacted to your post.",createdAt:serverTimestamp(),read:false}).catch(err=>console.warn("Reaction notification failed:",err));
+        p.myReaction=type;p.likes=[...(p.likes||[]).filter(uid=>uid!==currentUser.uid),currentUser.uid];
       }
+      if(p.isGroupPost){
+        const rs=await getDocs(collection(db,"groups",p.groupId,"posts",p.groupPostId,"reactions"));p.likeCount=rs.size;
+      }else{
+        if(existing.exists()&&existing.data().type===type){
+          if(liked)await updateDoc(doc(db,"posts",p.id),{likes:arrayRemove(currentUser.uid),likeCount:Math.max(0,(p.likeCount||0)-1)});
+        }else if(!liked){
+          await updateDoc(doc(db,"posts",p.id),{likes:arrayUnion(currentUser.uid),likeCount:(p.likeCount||0)+1});
+        }
+      }
+      if(!liked&&p.authorUid&&p.authorUid!==currentUser.uid)await addDoc(collection(db,"users",p.authorUid,"notifications"),{type:"like",fromUid:currentUser.uid,postId:p.isGroupPost?p.groupPostId:p.id,text:(currentUser.displayName||"A member")+" reacted to your post.",createdAt:serverTimestamp(),read:false}).catch(err=>console.warn("Reaction notification failed:",err));
       render();return;
     }
     if(!action)return;
