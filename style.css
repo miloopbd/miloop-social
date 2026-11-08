@@ -50,3 +50,22 @@ body{
 .comment-reply .comment-body b{font-size:9px}
 .comment-reply .comment-body p{font-size:10px;margin:3px 0}
 
+
+/* Clean post menu and Facebook-style reactions */
+.post-head{position:relative}.post-menu-wrap{position:relative;margin-left:auto}
+.post-menu{width:34px;height:34px;border:0;border-radius:50%;background:transparent;color:#66748b;font-size:20px;letter-spacing:1px;cursor:pointer}
+.post-menu:hover{background:#f0f3f8}.post-menu-list{position:absolute;right:0;top:38px;z-index:25;width:190px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px #14264a25}
+.post-menu-list[hidden],.reaction-picker[hidden]{display:none!important}
+.post-menu-list button{display:flex;align-items:center;gap:10px;width:100%;padding:10px;border:0;border-radius:8px;background:#fff;text-align:left;color:#44516a;font:600 11px "DM Sans";cursor:pointer}
+.post-menu-list button:hover{background:#f3f6fb}.post-menu-list button.danger{color:#d94355}
+.post-actions{align-items:center;border-top:1px solid #f0f2f6;margin-top:2px}
+.post-actions>button,.reaction-wrap>button{min-height:36px}
+.reaction-wrap{position:relative;flex:1;min-width:0}
+.reaction-wrap>button{width:100%;border:0;background:transparent;border-radius:7px;padding:7px;color:#68758c;font:600 10px "DM Sans";cursor:pointer}
+.reaction-wrap>button:hover{background:#f5f7fb}.reaction-wrap>button.liked{color:#155eef}
+.reaction-picker{position:absolute;left:0;bottom:43px;z-index:24;display:flex;gap:3px;padding:7px;background:#fff;border:1px solid #e5eaf2;border-radius:24px;box-shadow:0 8px 28px #14264a24}
+.reaction-picker button{width:34px;height:34px;border:0;border-radius:50%;background:transparent;font-size:21px;cursor:pointer;transition:transform .12s}
+.reaction-picker button:hover{transform:scale(1.25);background:#f2f5fa}
+.post-actions>button{flex:1;border:0;background:transparent;border-radius:7px;padding:7px;color:#68758c;font:600 10px "DM Sans";cursor:pointer}
+.post-actions>button:hover{background:#f5f7fb}
+@media(max-width:390px){.reaction-picker{gap:0;padding:5px}.reaction-picker button{width:30px;height:32px;font-size:19px}}
