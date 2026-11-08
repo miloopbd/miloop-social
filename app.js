@@ -70,47 +70,43 @@ async function showPostLikers(post) {
   dialog.className = "comments-dialog";
   dialog.innerHTML = '<div class="comments-shell"><div class="dialog-head"><div><p class="eyebrow">POST REACTIONS</p><h2>Reactions</h2></div><button type="button" class="close" aria-label="Close">×</button></div><div class="comments-list"><p class="comment-empty">Loading reactions…</p></div></div>';
   document.body.append(dialog);
-  const close = () => { dialog.close(); dialog.remove(); };
+  const close = () => { if(dialog.open)dialog.close(); dialog.remove(); };
   dialog.querySelector(".close").onclick = close;
   dialog.addEventListener("click",e=>{if(e.target===dialog)close();});
   dialog.showModal();
   const list = dialog.querySelector(".comments-list");
-  const reactionInfo = {
-    like:{emoji:"👍",label:"Like"}, love:{emoji:"❤️",label:"Love"},
-    care:{emoji:"🥰",label:"Care"}, haha:{emoji:"😂",label:"Haha"},
-    wow:{emoji:"😮",label:"Wow"}, sad:{emoji:"😢",label:"Sad"},
-    angry:{emoji:"😡",label:"Angry"}
-  };
+  const info = {like:["👍","Like"],love:["❤️","Love"],care:["🥰","Care"],haha:["😂","Haha"],wow:["😮","Wow"],sad:["😢","Sad"],angry:["😡","Angry"]};
   try {
     const snap = await getDocs(collection(db,"posts",post.id,"reactions"));
-    if (!snap.size) { list.innerHTML='<p class="comment-empty">No reactions yet.</p>'; return; }
-    const people = await Promise.all(snap.docs.map(async reactionDoc=>{
-      const reaction = reactionDoc.data();
-      const uid = reaction.uid || reactionDoc.id;
-      let name = "MILOOP member";
-      try {
-        const profile = await getDoc(doc(db,"publicProfiles",uid));
-        if(profile.exists()) {
-          const data=profile.data();
-          name=data.displayName||data.name||name;
-        }
-      } catch(error) { console.warn("Could not load reaction profile:",error); }
-      const info = reactionInfo[reaction.type] || reactionInfo.like;
-      return {uid,name,...info};
+    let people = await Promise.all(snap.docs.map(async d=>{
+      const v=d.data(),uid=v.uid||d.id;let name="MILOOP member";
+      try{const profile=await getDoc(doc(db,"publicProfiles",uid));if(profile.exists()){const x=profile.data();name=x.displayName||x.name||name;}}catch(e){console.warn(e);}
+      const [emoji,label]=info[v.type]||info.like;return {uid,name,emoji,label};
     }));
-    const counts = people.reduce((out,person)=>{out[person.label]=(out[person.label]||0)+1;return out;},{});
-    const summary = Object.entries(counts).map(([label,count])=>{
-      const info=Object.values(reactionInfo).find(x=>x.label===label);
-      return info.emoji+" "+count;
-    }).join("  ·  ");
-    list.innerHTML = '<p class="reaction-summary">'+safe(summary)+'</p>'+people.map(person=>
-      '<button type="button" class="comment-item profile-person-link" data-profile-uid="'+safe(person.uid)+'"><div class="comment-avatar">'+safe(initials(person.name))+'</div><div class="comment-body"><b>'+safe(person.name)+'</b><small>'+safe(person.label)+'</small></div><span class="reaction-person-emoji" aria-label="'+safe(person.label)+'">'+person.emoji+'</span></button>'
-    ).join("");
-    dialog.querySelector("h2").textContent = "Reactions · "+people.length;
-  } catch(error) {
-    console.error("Could not load post reactions:",error);
-    list.innerHTML='<p class="comment-empty">Could not load reactions. Please try again.</p>';
-  }
+    // Backward compatibility for older Like records stored only in posts.likes.
+    if(!people.length && Array.isArray(post.likes) && post.likes.length){
+      people=await Promise.all(post.likes.map(async uid=>{let name="MILOOP member";try{const profile=await getDoc(doc(db,"publicProfiles",uid));if(profile.exists()){const x=profile.data();name=x.displayName||x.name||name;}}catch(e){console.warn(e);}return {uid,name,emoji:"👍",label:"Like"};}));
+    }
+    if(!people.length){list.innerHTML='<p class="comment-empty">No reactions yet.</p>';return;}
+    const totals=people.reduce((o,x)=>(o[x.label]=(o[x.label]||0)+1,o),{});
+    list.innerHTML='<p class="reaction-summary">'+Object.entries(totals).map(([label,n])=>{const item=Object.values(info).find(x=>x[1]===label);return item[0]+' '+n;}).join(' · ')+'</p>'+people.map(x=>'<div class="comment-item"><div class="comment-avatar">'+safe(initials(x.name))+'</div><div class="comment-body"><b>'+safe(x.name)+'</b><small>'+safe(x.label)+'</small></div><span class="reaction-person-emoji">'+x.emoji+'</span></div>').join("");
+    dialog.querySelector("h2").textContent="Reactions · "+people.length;
+  }catch(error){console.error("Post reactions could not load:",error);list.innerHTML='<p class="comment-empty">Reactions could not load. Firebase Rules may need publishing.</p>';}
+}
+
+async function showCommentReactions(postId,commentId){
+  const dialog=document.createElement("dialog");dialog.className="comments-dialog";
+  dialog.innerHTML='<div class="comments-shell"><div class="dialog-head"><div><p class="eyebrow">COMMENT REACTIONS</p><h2>Reactions</h2></div><button type="button" class="close" aria-label="Close">×</button></div><div class="comments-list"><p class="comment-empty">Loading…</p></div></div>';
+  document.body.append(dialog);const close=()=>{if(dialog.open)dialog.close();dialog.remove();};
+  dialog.querySelector(".close").onclick=close;dialog.addEventListener("click",e=>{if(e.target===dialog)close();});dialog.showModal();
+  const list=dialog.querySelector(".comments-list"),info={like:["👍","Like"],love:["❤️","Love"],care:["🥰","Care"],haha:["😂","Haha"],wow:["😮","Wow"],sad:["😢","Sad"],angry:["😡","Angry"]};
+  try{const snap=await getDocs(collection(db,"posts",postId,"comments",commentId,"reactions"));
+    if(!snap.size){list.innerHTML='<p class="comment-empty">No reactions yet.</p>';return;}
+    const people=await Promise.all(snap.docs.map(async d=>{const v=d.data(),uid=v.uid||d.id;let name="MILOOP member";try{const p=await getDoc(doc(db,"publicProfiles",uid));if(p.exists())name=p.data().displayName||p.data().name||name;}catch(e){console.warn(e);}const [emoji,label]=info[v.type]||info.like;return {uid,name,emoji,label};}));
+    const totals=people.reduce((o,x)=>(o[x.label]=(o[x.label]||0)+1,o),{});
+    list.innerHTML='<p class="reaction-summary">'+Object.entries(totals).map(([label,n])=>Object.values(info).find(x=>x[1]===label)[0]+' '+n).join(' · ')+'</p>'+people.map(x=>'<div class="comment-item"><div class="comment-avatar">'+safe(initials(x.name))+'</div><div class="comment-body"><b>'+safe(x.name)+'</b><small>'+safe(x.label)+'</small></div><span class="reaction-person-emoji">'+x.emoji+'</span></div>').join("");
+    dialog.querySelector("h2").textContent="Reactions · "+people.length;
+  }catch(e){console.error(e);list.innerHTML='<p class="comment-empty">Could not load reactions. Publish the updated Firestore Rules.</p>';}
 }
 
 async function openComments(post) {
@@ -123,16 +119,21 @@ async function openComments(post) {
   stopComments = onSnapshot(query(collection(db,"posts",post.id,"comments"),orderBy("createdAt","asc")), async snap=>{
     const rows = await Promise.all(snap.docs.map(async d=>{
       const c=d.data(), own=currentUser && currentUser.uid===c.uid;
-      const [likesSnap,repliesSnap,myLike] = await Promise.all([
-        getDocs(collection(db,"posts",post.id,"comments",d.id,"likes")),
+      const [reactionSnap,repliesSnap,myReactionSnap] = await Promise.all([
+        getDocs(collection(db,"posts",post.id,"comments",d.id,"reactions")),
         getDocs(query(collection(db,"posts",post.id,"comments",d.id,"replies"),orderBy("createdAt","asc"))),
-        currentUser ? getDoc(doc(db,"posts",post.id,"comments",d.id,"likes",currentUser.uid)) : Promise.resolve(null)
+        currentUser ? getDoc(doc(db,"posts",post.id,"comments",d.id,"reactions",currentUser.uid)) : Promise.resolve(null)
       ]);
+      const reactionTotals={};
+      reactionSnap.docs.forEach(rd=>{const type=rd.data().type||"like";reactionTotals[type]=(reactionTotals[type]||0)+1;});
+      const reactionEmoji={like:"👍",love:"❤️",care:"🥰",haha:"😂",wow:"😮",sad:"😢",angry:"😡"};
+      const reactionSummary=Object.entries(reactionTotals).map(([type,count])=>(reactionEmoji[type]||"👍")+" "+count).join(" · ");
+      const myCommentReaction=myReactionSnap?.exists()?myReactionSnap.data().type:"";
       const replies = repliesSnap.docs.map(rd=>{
         const reply=rd.data(), ownReply=currentUser && currentUser.uid===reply.uid;
         return '<div class="comment-reply"><div class="comment-avatar">'+safe(initials(reply.displayName))+'</div><div class="comment-body"><b><button type="button" class="profile-name-link" data-profile-uid="'+safe(reply.uid)+'">'+safe(reply.displayName||"MILOOP member")+'</button></b><p>'+safe(reply.text)+'</p><small>'+safe(relativeTime(reply.createdAt))+'</small>'+(ownReply?'<button type="button" class="comment-delete" data-reply-delete="'+safe(d.id)+'|'+safe(rd.id)+'">Delete</button>':"")+'</div></div>';
       }).join("");
-      return '<div class="comment-item" data-comment-id="'+safe(d.id)+'"><div class="comment-avatar">'+safe(initials(c.displayName))+'</div><div class="comment-body"><b><button type="button" class="profile-name-link" data-profile-uid="'+safe(c.uid)+'">'+safe(c.displayName||"MILOOP member")+'</button></b><p>'+safe(c.text)+'</p><small>'+safe(relativeTime(c.createdAt))+(c.edited?' · edited':"")+'</small><div class="comment-tools"><button type="button" data-comment-like="'+safe(d.id)+'">'+(myLike?.exists()?'♥':'♡')+' Like · '+likesSnap.size+'</button><button type="button" data-reply-toggle="'+safe(d.id)+'">Reply</button>'+(own?'<button type="button" data-comment-edit="'+safe(d.id)+'">Edit</button><button type="button" class="comment-delete" data-comment-delete="'+safe(d.id)+'">Delete</button>':"")+'</div><form class="reply-form" data-reply-form="'+safe(d.id)+'" hidden><input maxlength="500" placeholder="Write a reply…" required><button type="submit">Reply</button></form><div class="comment-replies">'+replies+'</div></div></div>';
+      return '<div class="comment-item" data-comment-id="'+safe(d.id)+'"><div class="comment-avatar">'+safe(initials(c.displayName))+'</div><div class="comment-body"><b><button type="button" class="profile-name-link" data-profile-uid="'+safe(c.uid)+'">'+safe(c.displayName||"MILOOP member")+'</button></b><p>'+safe(c.text)+'</p><small>'+safe(relativeTime(c.createdAt))+(c.edited?' · edited':"")+'</small><div class="comment-tools"><button type="button" data-comment-reaction-toggle="'+safe(d.id)+'">'+(reactionEmoji[myCommentReaction]||"☺")+' React</button><button type="button" data-comment-reaction-list="'+safe(d.id)+'">'+safe(reactionSummary||"0 reactions")+'</button><button type="button" data-reply-toggle="'+safe(d.id)+'">Reply</button>'+(own?'<button type="button" data-comment-edit="'+safe(d.id)+'">Edit</button><button type="button" class="comment-delete" data-comment-delete="'+safe(d.id)+'">Delete</button>':"")+'</div><div class="comment-reaction-picker" data-comment-picker="'+safe(d.id)+'" hidden>'+Object.entries(reactionEmoji).map(([type,emoji])=>'<button type="button" data-comment-reaction="'+type+'" data-comment-id="'+safe(d.id)+'" aria-label="'+type+'">'+emoji+'</button>').join("")+'</div><form class="reply-form" data-reply-form="'+safe(d.id)+'" hidden><input maxlength="500" placeholder="Write a reply…" required><button type="submit">Reply</button></form><div class="comment-replies">'+replies+'</div></div></div>';
     }));
     $("commentsList").innerHTML = rows.length ? rows.join("") : '<p class="comment-empty">No comments yet. Start the conversation.</p>';
   },err=>{console.error(err);$("commentsList").innerHTML='<p class="comment-empty">Could not load comments.</p>';});
@@ -161,19 +162,27 @@ commentForm.addEventListener("submit",async e=>{
   finally{if(submit)submit.disabled=false;}
 });
 $("commentsList").addEventListener("click",async e=>{
-  const like=e.target.closest("[data-comment-like]");
+  const reactToggle=e.target.closest("[data-comment-reaction-toggle]");
+  const reactButton=e.target.closest("[data-comment-reaction]");
+  const reactList=e.target.closest("[data-comment-reaction-list]");
   const toggle=e.target.closest("[data-reply-toggle]");
   const edit=e.target.closest("[data-comment-edit]");
   const del=e.target.closest("[data-comment-delete]");
   const replyDel=e.target.closest("[data-reply-delete]");
   if(!currentUser){$("authOpen").click();return;}
   try{
-    if(like){
-      const ref=doc(db,"posts",activePostId,"comments",like.dataset.commentLike,"likes",currentUser.uid);
+    if(reactToggle){
+      const picker=$("commentsList").querySelector('[data-comment-picker="'+reactToggle.dataset.commentReactionToggle+'"]');
+      if(picker)picker.hidden=!picker.hidden;
+    } else if(reactButton){
+      const commentId=reactButton.dataset.commentId,type=reactButton.dataset.commentReaction;
+      const ref=doc(db,"posts",activePostId,"comments",commentId,"reactions",currentUser.uid);
       const existing=await getDoc(ref);
-      if(existing.exists()) await deleteDoc(ref);
-      else await setDoc(ref,{uid:currentUser.uid,createdAt:serverTimestamp()});
+      if(existing.exists()&&existing.data().type===type)await deleteDoc(ref);
+      else await setDoc(ref,{uid:currentUser.uid,type,createdAt:serverTimestamp()});
       const active=posts.find(p=>p.id===activePostId);if(active)openComments(active);
+    } else if(reactList){
+      await showCommentReactions(activePostId,reactList.dataset.commentReactionList);
     } else if(toggle){
       const form=$("commentsList").querySelector('[data-reply-form="'+toggle.dataset.replyToggle+'"]');
       if(form){form.hidden=!form.hidden;if(!form.hidden)form.querySelector("input").focus();}
