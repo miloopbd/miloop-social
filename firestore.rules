@@ -334,9 +334,16 @@ service cloud.firestore {
         && request.resource.data.name.size() <= 50
         && request.resource.data.description is string
         && request.resource.data.description.size() <= 240
+        && !('verified' in request.resource.data)
+        && !('verifiedAt' in request.resource.data)
         && request.resource.data.createdAt == request.time;
-      allow update: if activeMember() && resource.data.createdBy == request.auth.uid
-        && request.resource.data.createdBy == resource.data.createdBy;
+      allow update: if (activeMember() && resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdBy == resource.data.createdBy
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verified','verifiedAt']))
+        || (isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verified','verifiedAt'])
+          && request.resource.data.verified == true
+          && request.resource.data.verifiedAt == request.time);
       allow delete: if isAdmin() || (activeMember() && resource.data.createdBy == request.auth.uid);
 
       match /members/{memberUid} {
@@ -391,6 +398,29 @@ service cloud.firestore {
           allow delete: if isGroupMember(groupId) && resource.data.uid == request.auth.uid;
         }
       }
+    }
+
+    // Group verification applications are submitted by the group creator or a site admin.
+    match /groupVerificationRequests/{requestId} {
+      allow read: if activeMember() && (resource.data.requestedBy == request.auth.uid || isAdmin());
+      allow create: if activeMember()
+        && request.resource.data.groupId is string
+        && request.resource.data.groupName is string
+        && request.resource.data.createdBy is string
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() >= 10
+        && request.resource.data.reason.size() <= 300
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time
+        && exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
+        && (get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.createdBy == request.auth.uid || isAdmin());
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt'])
+        && request.resource.data.reviewedBy == request.auth.uid
+        && request.resource.data.reviewedAt == request.time
+        && request.resource.data.status in ['approved','rejected'];
+      allow delete: if false;
     }
 
     // Verification is requested by the member and granted only by an admin.
