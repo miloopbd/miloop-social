@@ -386,7 +386,7 @@ $("invite").addEventListener("click",async()=>{
 });
 onAuthStateChanged(auth,user=>{currentUser=user;render();watchAnnouncements();});
 stopPosts=onSnapshot(query(collection(db,"posts"),orderBy("createdAt","desc")),async snapshot=>{
-  posts=snapshot.docs.map(d=>({id:d.id,...d.data()}));
+  regularPosts=snapshot.docs.map(d=>({id:d.id,...d.data()}));
   const authorIds=[...new Set(posts.map(p=>p.authorUid).filter(Boolean))];
   await Promise.all(authorIds.map(async uid=>{try{const profile=await getDoc(doc(db,"publicProfiles",uid));const verified=profile.exists()&&profile.data().verified===true;posts.filter(p=>p.authorUid===uid).forEach(p=>p.isVerified=verified);}catch(e){console.warn("Could not load verified profile flag:",e);}}));
   if(currentUser){await Promise.all(posts.map(async p=>{try{const mine=await getDoc(doc(db,"posts",p.id,"reactions",currentUser.uid));p.myReaction=mine.exists()?mine.data().type:"";}catch(err){console.warn("Could not load reaction:",err);}}));}
