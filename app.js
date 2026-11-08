@@ -102,7 +102,7 @@ async function showCommentReactions(postId,commentId){
   const list=dialog.querySelector(".comments-list"),info={like:["👍","Like"],love:["❤️","Love"],care:["🥰","Care"],haha:["😂","Haha"],wow:["😮","Wow"],sad:["😢","Sad"],angry:["😡","Angry"]};
   try{const snap=await getDocs(collection(db,"posts",postId,"comments",commentId,"reactions"));
     if(!snap.size){list.innerHTML='<p class="comment-empty">No reactions yet.</p>';return;}
-    const people=await Promise.all(snap.docs.map(async d=>{const v=d.data(),uid=v.uid||d.id;let name="MILOOP member";try{const p=await getDoc(doc(db,"publicProfiles",uid));if(p.exists())name=p.data().displayName||p.data().name||name;}catch(e){console.warn(e);}const [emoji,label]=info[v.type]||info.like;return {uid,name,emoji,label};}));
+    const people=await Promise.all(snap.docs.map(async d=>{const v=d.data(),uid=v.uid||d.id;let name=v.displayName||"MILOOP member";try{const p=await getDoc(doc(db,"publicProfiles",uid));if(p.exists())name=p.data().displayName||p.data().name||name;}catch(e){console.warn(e);}const [emoji,label]=info[v.type]||info.like;return {uid,name,emoji,label};}));
     const totals=people.reduce((o,x)=>(o[x.label]=(o[x.label]||0)+1,o),{});
     list.innerHTML='<p class="reaction-summary">'+Object.entries(totals).map(([label,n])=>Object.values(info).find(x=>x[1]===label)[0]+' '+n).join(' · ')+'</p>'+people.map(x=>'<div class="comment-item"><div class="comment-avatar">'+safe(initials(x.name))+'</div><div class="comment-body"><b>'+safe(x.name)+'</b><small>'+safe(x.label)+'</small></div><span class="reaction-person-emoji">'+x.emoji+'</span></div>').join("");
     dialog.querySelector("h2").textContent="Reactions · "+people.length;
@@ -169,8 +169,12 @@ $("commentsList").addEventListener("click",async e=>{
   const edit=e.target.closest("[data-comment-edit]");
   const del=e.target.closest("[data-comment-delete]");
   const replyDel=e.target.closest("[data-reply-delete]");
-  if(!currentUser){$("authOpen").click();return;}
   try{
+    if(reactList){
+      await showCommentReactions(activePostId,reactList.dataset.commentReactionList);
+      return;
+    }
+    if(!currentUser){$("authOpen").click();return;}
     if(reactToggle){
       const picker=$("commentsList").querySelector('[data-comment-picker="'+reactToggle.dataset.commentReactionToggle+'"]');
       if(picker)picker.hidden=!picker.hidden;
@@ -181,8 +185,6 @@ $("commentsList").addEventListener("click",async e=>{
       if(existing.exists()&&existing.data().type===type)await deleteDoc(ref);
       else await setDoc(ref,{uid:currentUser.uid,displayName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",type,createdAt:serverTimestamp()});
       const active=posts.find(p=>p.id===activePostId);if(active)openComments(active);
-    } else if(reactList){
-      await showCommentReactions(activePostId,reactList.dataset.commentReactionList);
     } else if(toggle){
       const form=$("commentsList").querySelector('[data-reply-form="'+toggle.dataset.replyToggle+'"]');
       if(form){form.hidden=!form.hidden;if(!form.hidden)form.querySelector("input").focus();}
