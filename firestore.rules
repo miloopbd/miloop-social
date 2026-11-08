@@ -140,7 +140,7 @@ service cloud.firestore {
           || (isChatMember(chatId) && resource.data.uid != request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenBy','seenAt'])
             && request.resource.data.seenBy is list
-            && request.resource.data.seenBy.hasAll(resource.data.seenBy)
+            && (!('seenBy' in resource.data) || request.resource.data.seenBy.hasAll(resource.data.seenBy))
             && request.resource.data.seenBy.hasAny([request.auth.uid])
             && request.resource.data.seenAt == request.time);
         allow delete: if isChatMember(chatId) && resource.data.uid == request.auth.uid;
