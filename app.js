@@ -66,7 +66,6 @@ const commentsDialog = $("commentsDialog");
 const commentForm = $("commentForm");
 const commentText = $("commentText");
 async function showPostLikers(post) {
-  if (!currentUser) { $("authOpen").click(); return; }
   const dialog = document.createElement("dialog");
   dialog.className = "comments-dialog";
   dialog.innerHTML = '<div class="comments-shell"><div class="dialog-head"><div><p class="eyebrow">POST REACTIONS</p><h2>Reactions</h2></div><button type="button" class="close" aria-label="Close">×</button></div><div class="comments-list"><p class="comment-empty">Loading reactions…</p></div></div>';
