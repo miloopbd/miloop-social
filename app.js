@@ -78,18 +78,29 @@ async function showPostLikers(post) {
   const info = {like:["👍","Like"],love:["❤️","Love"],care:["🥰","Care"],haha:["😂","Haha"],wow:["😮","Wow"],sad:["😢","Sad"],angry:["😡","Angry"]};
   try {
     const snap = await getDocs(collection(db,"posts",post.id,"reactions"));
-    let people = await Promise.all(snap.docs.map(async d=>{
-      const v=d.data(),uid=v.uid||d.id;let name=v.displayName||"MILOOP member";
-      try{const profile=await getDoc(doc(db,"publicProfiles",uid));if(profile.exists()){const x=profile.data();name=x.displayName||x.name||name;}}catch(e){console.warn(e);}
-      const [emoji,label]=info[v.type]||info.like;return {uid,name,emoji,label};
+    const reactionByUid=new Map();
+    snap.docs.forEach(d=>{
+      const v=d.data(),uid=v.uid||d.id;
+      const [emoji,label]=info[v.type]||info.like;
+      reactionByUid.set(uid,{uid,name:v.displayName||"MILOOP member",emoji,label});
+    });
+    // Merge the public post.likes array as well, so older and newer members all appear.
+    (Array.isArray(post.likes)?post.likes:[]).forEach(uid=>{
+      if(!reactionByUid.has(uid))reactionByUid.set(uid,{uid,name:"MILOOP member",emoji:"👍",label:"Like"});
+    });
+    const people=await Promise.all([...reactionByUid.values()].map(async person=>{
+      try{
+        const profile=await getDoc(doc(db,"publicProfiles",person.uid));
+        if(profile.exists()){
+          const x=profile.data();
+          person.name=x.displayName||x.name||person.name;
+        }
+      }catch(e){console.warn("Could not load reactor profile:",e);}
+      return person;
     }));
-    // Backward compatibility for older Like records stored only in posts.likes.
-    if(!people.length && Array.isArray(post.likes) && post.likes.length){
-      people=await Promise.all(post.likes.map(async uid=>{let name="MILOOP member";try{const profile=await getDoc(doc(db,"publicProfiles",uid));if(profile.exists()){const x=profile.data();name=x.displayName||x.name||name;}}catch(e){console.warn(e);}return {uid,name,emoji:"👍",label:"Like"};}));
-    }
     if(!people.length){list.innerHTML='<p class="comment-empty">No reactions yet.</p>';return;}
     const totals=people.reduce((o,x)=>(o[x.label]=(o[x.label]||0)+1,o),{});
-    list.innerHTML='<p class="reaction-summary">'+Object.entries(totals).map(([label,n])=>{const item=Object.values(info).find(x=>x[1]===label);return item[0]+' '+n;}).join(' · ')+'</p>'+people.map(x=>'<div class="comment-item"><div class="comment-avatar">'+safe(initials(x.name))+'</div><div class="comment-body"><b>'+safe(x.name)+'</b><small>'+safe(x.label)+'</small></div><span class="reaction-person-emoji">'+x.emoji+'</span></div>').join("");
+    list.innerHTML='<p class="reaction-summary">'+Object.entries(totals).map(([label,n])=>{const item=Object.values(info).find(x=>x[1]===label);return item[0]+' '+n;}).join(' · ')+'</p>'+people.map(x=>'<div class="comment-item reaction-person-row"><div class="comment-avatar">'+safe(initials(x.name))+'</div><div class="comment-body"><b><button type="button" class="profile-name-link" data-profile-uid="'+safe(x.uid)+'">'+safe(x.name)+'</button></b><small>'+safe(x.label)+'</small></div><span class="reaction-person-emoji">'+x.emoji+'</span></div>').join("");
     dialog.querySelector("h2").textContent="Reactions · "+people.length;
   }catch(error){console.error("Post reactions could not load:",error);list.innerHTML='<p class="comment-empty">Reactions could not load. Firebase Rules may need publishing.</p>';}
 }
@@ -100,11 +111,18 @@ async function showCommentReactions(postId,commentId){
   document.body.append(dialog);const close=()=>{if(dialog.open)dialog.close();dialog.remove();};
   dialog.querySelector(".close").onclick=close;dialog.addEventListener("click",e=>{if(e.target===dialog)close();});dialog.showModal();
   const list=dialog.querySelector(".comments-list"),info={like:["👍","Like"],love:["❤️","Love"],care:["🥰","Care"],haha:["😂","Haha"],wow:["😮","Wow"],sad:["😢","Sad"],angry:["😡","Angry"]};
-  try{const snap=await getDocs(collection(db,"posts",postId,"comments",commentId,"reactions"));
-    if(!snap.size){list.innerHTML='<p class="comment-empty">No reactions yet.</p>';return;}
-    const people=await Promise.all(snap.docs.map(async d=>{const v=d.data(),uid=v.uid||d.id;let name=v.displayName||"MILOOP member";try{const p=await getDoc(doc(db,"publicProfiles",uid));if(p.exists())name=p.data().displayName||p.data().name||name;}catch(e){console.warn(e);}const [emoji,label]=info[v.type]||info.like;return {uid,name,emoji,label};}));
+  try{
+    const [snap,legacyLikes]=await Promise.all([
+      getDocs(collection(db,"posts",postId,"comments",commentId,"reactions")),
+      getDocs(collection(db,"posts",postId,"comments",commentId,"likes"))
+    ]);
+    const reactionByUid=new Map();
+    snap.docs.forEach(d=>{const v=d.data(),uid=v.uid||d.id;const [emoji,label]=info[v.type]||info.like;reactionByUid.set(uid,{uid,name:v.displayName||"MILOOP member",emoji,label});});
+    legacyLikes.docs.forEach(d=>{const v=d.data(),uid=v.uid||d.id;if(!reactionByUid.has(uid))reactionByUid.set(uid,{uid,name:v.displayName||"MILOOP member",emoji:"👍",label:"Like"});});
+    if(!reactionByUid.size){list.innerHTML='<p class="comment-empty">No reactions yet.</p>';return;}
+    const people=await Promise.all([...reactionByUid.values()].map(async person=>{try{const p=await getDoc(doc(db,"publicProfiles",person.uid));if(p.exists())person.name=p.data().displayName||p.data().name||person.name;}catch(e){console.warn(e);}return person;}));
     const totals=people.reduce((o,x)=>(o[x.label]=(o[x.label]||0)+1,o),{});
-    list.innerHTML='<p class="reaction-summary">'+Object.entries(totals).map(([label,n])=>Object.values(info).find(x=>x[1]===label)[0]+' '+n).join(' · ')+'</p>'+people.map(x=>'<div class="comment-item"><div class="comment-avatar">'+safe(initials(x.name))+'</div><div class="comment-body"><b>'+safe(x.name)+'</b><small>'+safe(x.label)+'</small></div><span class="reaction-person-emoji">'+x.emoji+'</span></div>').join("");
+    list.innerHTML='<p class="reaction-summary">'+Object.entries(totals).map(([label,n])=>Object.values(info).find(x=>x[1]===label)[0]+' '+n).join(' · ')+'</p>'+people.map(x=>'<div class="comment-item reaction-person-row"><div class="comment-avatar">'+safe(initials(x.name))+'</div><div class="comment-body"><b><button type="button" class="profile-name-link" data-profile-uid="'+safe(x.uid)+'">'+safe(x.name)+'</button></b><small>'+safe(x.label)+'</small></div><span class="reaction-person-emoji">'+x.emoji+'</span></div>').join("");
     dialog.querySelector("h2").textContent="Reactions · "+people.length;
   }catch(e){console.error(e);list.innerHTML='<p class="comment-empty">Could not load reactions. Publish the updated Firestore Rules.</p>';}
 }
