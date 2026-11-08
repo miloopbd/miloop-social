@@ -356,7 +356,40 @@ service cloud.firestore {
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 600
           && request.resource.data.createdAt == request.time;
-        allow update, delete: if isGroupMember(groupId) && resource.data.uid == request.auth.uid;
+        allow update: if isGroupMember(groupId) && resource.data.uid == request.auth.uid
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text'])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 600;
+        allow delete: if isGroupMember(groupId) && resource.data.uid == request.auth.uid;
+
+        match /reactions/{memberUid} {
+          allow read: if isGroupMember(groupId);
+          allow create, update: if isGroupMember(groupId) && request.auth.uid == memberUid
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.type in ['like','love','care','haha','wow','sad','angry']
+            && request.resource.data.createdAt == request.time;
+          allow delete: if isGroupMember(groupId) && request.auth.uid == memberUid;
+        }
+        match /comments/{commentId} {
+          allow read: if isGroupMember(groupId);
+          allow create: if isGroupMember(groupId)
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.displayName is string
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 500
+            && request.resource.data.createdAt == request.time;
+          allow update: if isGroupMember(groupId) && resource.data.uid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','edited','editedAt'])
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 500
+            && request.resource.data.edited == true
+            && request.resource.data.editedAt == request.time;
+          allow delete: if isGroupMember(groupId) && resource.data.uid == request.auth.uid;
+        }
       }
     }
 
