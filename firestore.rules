@@ -375,6 +375,17 @@ service cloud.firestore {
             && request.auth.uid == memberUid;
         }
 
+        // Publicly readable reactions; each signed-in member controls their own reaction.
+        match /reactions/{memberUid} {
+          allow read: if true;
+          allow create, update: if signedIn()
+            && request.auth.uid == memberUid
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.type in ['like','love','care','haha','wow','sad','angry']
+            && request.resource.data.createdAt == request.time;
+          allow delete: if signedIn() && request.auth.uid == memberUid;
+        }
+
         // Replies belong to the parent comment.
         match /replies/{replyId} {
           allow read: if true;
