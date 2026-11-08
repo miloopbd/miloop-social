@@ -2,6 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
+    function activeMember() { return signedIn() && (!exists(/databases/$(database)/documents/memberControls/$(request.auth.uid)) || get(/databases/$(database)/documents/memberControls/$(request.auth.uid)).data.active != false); }
     function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'admin'; }
     function isChatMember(chatId) {
       return signedIn()
@@ -10,16 +11,16 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if signedIn() && request.auth.uid == userId;
-      allow create: if signedIn() && request.auth.uid == userId
+      allow read: if activeMember() && request.auth.uid == userId;
+      allow create: if activeMember() && request.auth.uid == userId
         && request.resource.data.uid == userId;
-      allow update: if signedIn() && request.auth.uid == userId
+      allow update: if activeMember() && request.auth.uid == userId
         && resource.data.uid == userId && request.resource.data.uid == userId;
       allow delete: if false;
 
       match /notifications/{notificationId} {
-        allow read, update, delete: if signedIn() && request.auth.uid == userId;
-        allow create: if signedIn()
+        allow read, update, delete: if activeMember() && request.auth.uid == userId;
+        allow create: if activeMember()
           && request.resource.data.fromUid == request.auth.uid
           && (
             (request.resource.data.type == 'follow'
@@ -41,8 +42,8 @@ service cloud.firestore {
     }
 
     match /publicProfiles/{userId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn() && request.auth.uid == userId
+      allow read: if activeMember();
+      allow create, update: if activeMember() && request.auth.uid == userId
         && request.resource.data.uid == userId
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() > 0
@@ -61,17 +62,17 @@ service cloud.firestore {
 
     match /follows/{followerUid}/following/{targetUid} {
       // Signed-in members can view follower/following lists; only the owner can change their following list.
-      allow read: if signedIn();
-      allow create: if signedIn() && request.auth.uid == followerUid
+      allow read: if activeMember();
+      allow create: if activeMember() && request.auth.uid == followerUid
         && targetUid != followerUid
         && request.resource.data.uid == targetUid;
-      allow delete: if signedIn() && request.auth.uid == followerUid;
+      allow delete: if activeMember() && request.auth.uid == followerUid;
       allow update: if false;
     }
 
     match /stories/{storyId} {
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read: if activeMember();
+      allow create: if activeMember()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
@@ -80,26 +81,26 @@ service cloud.firestore {
         && request.resource.data.expiresAt > request.time
         && request.resource.data.expiresAt <= request.time + duration.value(25, 'h');
       allow update: if false;
-      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if activeMember() && resource.data.uid == request.auth.uid;
     }
 
     match /presence/{userId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn() && request.auth.uid == userId
+      allow read: if activeMember();
+      allow create, update: if activeMember() && request.auth.uid == userId
         && request.resource.data.uid == userId
         && request.resource.data.isOnline is bool
         && request.resource.data.lastSeenAt == request.time;
-      allow delete: if signedIn() && request.auth.uid == userId;
+      allow delete: if activeMember() && request.auth.uid == userId;
     }
 
     match /chats/{chatId} {
-      allow read: if signedIn() && resource.data.members.hasAny([request.auth.uid]);
-      allow create: if signedIn()
+      allow read: if activeMember() && resource.data.members.hasAny([request.auth.uid]);
+      allow create: if activeMember()
         && request.resource.data.members is list
         && request.resource.data.members.size() == 2
         && request.resource.data.members.hasAny([request.auth.uid])
         && request.resource.data.members[0] != request.resource.data.members[1];
-      allow update: if signedIn()
+      allow update: if activeMember()
         && resource.data.members.hasAny([request.auth.uid])
         && request.resource.data.members == resource.data.members
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt','lastMessage','lastMessageAt','lastMessageUid'])
@@ -151,8 +152,8 @@ service cloud.firestore {
 
     // Community Hub: polls and one vote per member.
     match /polls/{pollId} {
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read: if activeMember();
+      allow create: if activeMember()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
@@ -163,10 +164,10 @@ service cloud.firestore {
         && request.resource.data.displayName is string
         && request.resource.data.createdAt == request.time;
       allow update: if false;
-      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if activeMember() && resource.data.uid == request.auth.uid;
       match /votes/{voterUid} {
-        allow read: if signedIn();
-        allow create: if signedIn() && request.auth.uid == voterUid
+        allow read: if activeMember();
+        allow create: if activeMember() && request.auth.uid == voterUid
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.option is int
           && request.resource.data.createdAt == request.time
@@ -178,8 +179,8 @@ service cloud.firestore {
 
     // Community questions and member answers.
     match /questions/{questionId} {
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read: if activeMember();
+      allow create: if activeMember()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
@@ -188,24 +189,24 @@ service cloud.firestore {
         && request.resource.data.body.size() <= 800
         && request.resource.data.createdAt == request.time;
       allow update: if false;
-      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if activeMember() && resource.data.uid == request.auth.uid;
       match /answers/{answerId} {
-        allow read: if signedIn();
-        allow create: if signedIn()
+        allow read: if activeMember();
+        allow create: if activeMember()
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 500
           && request.resource.data.createdAt == request.time;
         allow update: if false;
-        allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+        allow delete: if activeMember() && resource.data.uid == request.auth.uid;
       }
     }
 
     // Streak points are deliberately small and self-reported; this is a fun feature, not a prize system.
     match /streaks/{userId} {
-      allow read: if signedIn();
-      allow create: if signedIn() && request.auth.uid == userId
+      allow read: if activeMember();
+      allow create: if activeMember() && request.auth.uid == userId
         && request.resource.data.uid == userId
         && request.resource.data.currentStreak is int
         && request.resource.data.currentStreak <= 1
@@ -214,7 +215,7 @@ service cloud.firestore {
         && request.resource.data.totalPoints is int
         && request.resource.data.totalPoints <= 5
         && request.resource.data.lastActiveDay is string;
-      allow update: if signedIn() && request.auth.uid == userId
+      allow update: if activeMember() && request.auth.uid == userId
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','lastActiveDay','currentStreak','longestStreak','totalPoints','updatedAt'])
         && request.resource.data.totalPoints is int
@@ -228,13 +229,13 @@ service cloud.firestore {
 
     // Bookmarks are private to their owner.
     match /bookmarks/{userId}/items/{postId} {
-      allow read, create, update, delete: if signedIn() && request.auth.uid == userId;
+      allow read, create, update, delete: if activeMember() && request.auth.uid == userId;
     }
 
     // Public community events and private per-member RSVPs.
     match /events/{eventId} {
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read: if activeMember();
+      allow create: if activeMember()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
@@ -244,29 +245,29 @@ service cloud.firestore {
         && request.resource.data.startsAt is timestamp
         && request.resource.data.startsAt > request.time
         && request.resource.data.createdAt == request.time;
-      allow update: if signedIn() && resource.data.uid == request.auth.uid
+      allow update: if activeMember() && resource.data.uid == request.auth.uid
         && request.resource.data.uid == resource.data.uid;
-      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if activeMember() && resource.data.uid == request.auth.uid;
       match /members/{memberUid} {
-        allow read: if signedIn();
-        allow create: if signedIn() && request.auth.uid == memberUid
+        allow read: if activeMember();
+        allow create: if activeMember() && request.auth.uid == memberUid
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.createdAt == request.time;
-        allow update, delete: if signedIn() && request.auth.uid == memberUid;
+        allow update, delete: if activeMember() && request.auth.uid == memberUid;
       }
     }
     match /eventRsvps/{eventId}/members/{memberUid} {
-      allow read: if signedIn();
-      allow create: if signedIn() && request.auth.uid == memberUid
+      allow read: if activeMember();
+      allow create: if activeMember() && request.auth.uid == memberUid
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.createdAt == request.time;
-      allow update, delete: if signedIn() && request.auth.uid == memberUid;
+      allow update, delete: if activeMember() && request.auth.uid == memberUid;
     }
 
     // Challenge entries: one entry per signed-in member per challenge.
     match /challengeEntries/{challengeId}/entries/{memberUid} {
-      allow read: if signedIn();
-      allow create: if signedIn() && request.auth.uid == memberUid
+      allow read: if activeMember();
+      allow create: if activeMember() && request.auth.uid == memberUid
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.createdAt == request.time
         && (!('text' in request.resource.data) || (request.resource.data.text is string && request.resource.data.text.size() <= 400))
@@ -276,26 +277,27 @@ service cloud.firestore {
 
     // Birthday visibility is opt-in and stores month/day only, never a birth year.
     match /birthdayOptIns/{userId} {
-      allow read: if signedIn() && resource.data.enabled == true;
-      allow create, update: if signedIn() && request.auth.uid == userId
+      allow read: if activeMember() && resource.data.enabled == true;
+      allow create, update: if activeMember() && request.auth.uid == userId
         && request.resource.data.uid == userId
         && request.resource.data.displayName is string
         && request.resource.data.monthDay is string
         && request.resource.data.monthDay.size() == 5
         && request.resource.data.enabled == true;
-      allow delete: if signedIn() && request.auth.uid == userId;
+      allow delete: if activeMember() && request.auth.uid == userId;
     }
     match /blocks/{userId}/users/{blockedUid} {
-      allow read: if signedIn() && request.auth.uid == userId;
-      allow create: if signedIn() && request.auth.uid == userId && blockedUid != userId
+      allow read: if activeMember() && request.auth.uid == userId;
+      allow create: if activeMember() && request.auth.uid == userId && blockedUid != userId
         && request.resource.data.uid == blockedUid && request.resource.data.createdAt == request.time;
-      allow delete: if signedIn() && request.auth.uid == userId;
+      allow delete: if activeMember() && request.auth.uid == userId;
       allow update: if false;
     }
-    match /admins/{adminUid} { allow read: if signedIn() && request.auth.uid == adminUid; allow write: if false; }
+    match /admins/{adminUid} { allow read: if activeMember() && request.auth.uid == adminUid; allow write: if false; }
+    match /memberControls/{memberUid} { allow read: if isAdmin(); allow create, update: if isAdmin() && request.resource.data.uid == memberUid && request.resource.data.active is bool && request.resource.data.updatedBy == request.auth.uid; allow delete: if false; }
 
     match /reports/{reportId} {
-      allow create: if signedIn()
+      allow create: if activeMember()
         && request.resource.data.reporterUid == request.auth.uid
         && request.resource.data.targetType in ['post','user']
         && request.resource.data.targetId is string
@@ -304,24 +306,24 @@ service cloud.firestore {
         && request.resource.data.reason.size() <= 300
         && request.resource.data.status == 'open'
         && request.resource.data.createdAt == request.time;
-      allow read: if (signedIn() && resource.data.reporterUid == request.auth.uid) || isAdmin();
+      allow read: if (activeMember() && resource.data.reporterUid == request.auth.uid) || isAdmin();
       allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt']) && request.resource.data.reviewedBy == request.auth.uid && request.resource.data.status in ['reviewed','action_taken'];
       allow delete: if false;
     }
 
     match /posts/{postId}/reactions/{memberUid} {
       allow read: if true;
-      allow create, update: if signedIn()
+      allow create, update: if activeMember()
         && request.auth.uid == memberUid
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.type in ['like','love','care','haha','wow','sad','angry']
         && request.resource.data.createdAt is timestamp;
-      allow delete: if signedIn() && request.auth.uid == memberUid;
+      allow delete: if activeMember() && request.auth.uid == memberUid;
     }
 
     match /posts/{postId} {
       allow read: if true;
-      allow create: if signedIn()
+      allow create: if activeMember()
         && request.resource.data.keys().hasOnly(['authorUid','authorName','text','mediaUrl','mediaType','mediaPath','createdAt','likes','likeCount'])
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorName is string
@@ -336,7 +338,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
 
       allow update: if (
-        signedIn()
+        activeMember()
         && resource.data.authorUid == request.auth.uid
         && request.resource.data.authorUid == resource.data.authorUid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text'])
@@ -344,7 +346,7 @@ service cloud.firestore {
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 1000
       ) || (
-        signedIn()
+        activeMember()
         && request.resource.data.authorUid == resource.data.authorUid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes','likeCount'])
         && request.resource.data.likes is list
@@ -364,13 +366,13 @@ service cloud.firestore {
         )
       );
 
-      allow delete: if isAdmin() || (signedIn()
+      allow delete: if isAdmin() || (activeMember()
         && resource.data.authorUid == request.auth.uid);
 
       match /comments/{commentId} {
         allow read: if true;
 
-        allow create: if signedIn()
+        allow create: if activeMember()
           && request.resource.data.keys().hasOnly(['uid','displayName','text','createdAt'])
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.displayName is string
@@ -381,7 +383,7 @@ service cloud.firestore {
           && request.resource.data.text.size() <= 500
           && request.resource.data.createdAt == request.time;
 
-        allow update: if signedIn()
+        allow update: if activeMember()
           && resource.data.uid == request.auth.uid
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.diff(resource.data).affectedKeys()
@@ -392,40 +394,40 @@ service cloud.firestore {
           && request.resource.data.edited == true
           && request.resource.data.editedAt == request.time;
 
-        allow delete: if signedIn()
+        allow delete: if activeMember()
           && resource.data.uid == request.auth.uid;
 
         // A member can like a comment only once.
         match /likes/{memberUid} {
-          allow read: if signedIn();
+          allow read: if activeMember();
 
-          allow create: if signedIn()
+          allow create: if activeMember()
             && request.auth.uid == memberUid
             && request.resource.data.uid == request.auth.uid
             && request.resource.data.createdAt == request.time;
 
           allow update: if false;
 
-          allow delete: if signedIn()
+          allow delete: if activeMember()
             && request.auth.uid == memberUid;
         }
 
         // Publicly readable reactions; each signed-in member controls their own reaction.
         match /reactions/{memberUid} {
           allow read: if true;
-          allow create, update: if signedIn()
+          allow create, update: if activeMember()
             && request.auth.uid == memberUid
             && request.resource.data.uid == request.auth.uid
             && request.resource.data.type in ['like','love','care','haha','wow','sad','angry']
             && request.resource.data.createdAt == request.time;
-          allow delete: if signedIn() && request.auth.uid == memberUid;
+          allow delete: if activeMember() && request.auth.uid == memberUid;
         }
 
         // Replies belong to the parent comment.
         match /replies/{replyId} {
           allow read: if true;
 
-          allow create: if signedIn()
+          allow create: if activeMember()
             && request.resource.data.keys().hasOnly(['uid','displayName','text','createdAt'])
             && request.resource.data.uid == request.auth.uid
             && request.resource.data.displayName is string
@@ -438,7 +440,7 @@ service cloud.firestore {
 
           allow update: if false;
 
-          allow delete: if signedIn()
+          allow delete: if activeMember()
             && resource.data.uid == request.auth.uid;
         }
       }
