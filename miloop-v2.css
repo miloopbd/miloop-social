@@ -17,3 +17,6 @@ html,body{width:100%;max-width:100%;overflow-x:clip}
 /* Floating Community Hub shortcut: vertically centered on mobile */
 .mobile-community-hub{display:none}
 @media(max-width:700px){.mobile-community-hub{display:flex;position:fixed;right:9px;top:50%;transform:translateY(-50%);z-index:70;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:54px;min-height:66px;padding:8px 4px;border:1px solid #dce7ff;border-radius:16px;background:linear-gradient(145deg,#155eef,#1747b7);color:#fff;box-shadow:0 8px 24px #155eef40;font:700 18px "DM Sans",sans-serif;cursor:pointer}.mobile-community-hub small{font:700 8px/1.25 "DM Sans",sans-serif;text-align:center}.mobile-community-hub:active{transform:translateY(-50%) scale(.96)}}
+
+/* Top navigation Community Hub button */
+.top-community-hub{border:1px solid #dce7ff;background:#f1f6ff;color:#155eef;border-radius:9px;padding:9px 13px;font:700 11px "DM Sans",sans-serif;white-space:nowrap;cursor:pointer}.top-community-hub:hover{background:#e5efff}.top-actions{gap:8px}@media(max-width:700px){.top-community-hub{padding:8px 9px;font-size:9px}.topbar{gap:7px}.top-actions{gap:6px}.search{min-width:0;flex:1}.brand{flex:none}} 
