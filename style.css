@@ -78,3 +78,7 @@ body{
 .reaction-summary{margin:0 0 9px;padding:8px 10px;background:#f5f7fb;border-radius:10px;color:#53627a;font-size:13px;font-weight:700}
 .reaction-person-emoji{margin-left:auto;font-size:20px;align-self:center}
 .comment-tools button[data-comment-reaction-list]{font-weight:700;color:#52617a}
+
+/* Clickable names in post and comment reaction lists */
+.reaction-person-row .profile-name-link{border:0;background:transparent;color:#155eef;font:inherit;font-weight:700;padding:0;cursor:pointer;text-align:left}
+.reaction-person-row .profile-name-link:hover{text-decoration:underline}
