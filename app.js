@@ -27,14 +27,37 @@ function render() {
   $("posts").innerHTML = list.length ? list.map(p => {
     const liked = currentUser && (p.likes||[]).includes(currentUser.uid);
     const mine = currentUser && p.authorUid===currentUser.uid;
-    return `<article class="post" data-id="${safe(p.id)}">
+    const reaction = p.myReaction || (liked ? "like" : "");
+    const reactionNames = {like:"👍 Like",love:"❤️ Love",care:"🥰 Care",haha:"😂 Haha",wow:"😮 Wow",sad:"😢 Sad",angry:"😡 Angry"};
+    return `<article class="post" data-id="${safe(p.id)}" data-author-uid="${safe(p.authorUid)}">
       <div class="post-head"><div class="avatar">${safe(initials(p.authorName))}</div>
       <div class="post-author"><b><button type="button" class="post-author-link" data-profile-uid="${safe(p.authorUid)}">${safe(p.authorName||"MILOOP member")}</button></b><small>${safe(relativeTime(p.createdAt))}</small></div>
-      ${mine?'<button class="post-menu" data-action="edit" aria-label="Edit your post">✎</button><button class="post-menu" data-action="delete" aria-label="Delete your post">×</button>':""}</div>
+      <div class="post-menu-wrap"><button type="button" class="post-menu" data-action="menu" aria-label="Post options" aria-expanded="false">•••</button>
+        <div class="post-menu-list" hidden>
+          <button type="button" data-action="save">▱ <span>Save post</span></button>
+          <button type="button" data-action="copy-link">🔗 <span>Copy link</span></button>
+          ${!mine?'<button type="button" data-action="block">🚫 <span>Block member</span></button>':""}
+          ${mine?'<button type="button" data-action="edit">✎ <span>Edit post</span></button><button type="button" class="danger" data-action="delete">🗑 <span>Delete post</span></button>':""}
+        </div>
+      </div></div>
       <p class="post-text">${safe(p.text)}</p>
-      <div class="stats"><button type="button" data-action="likers" aria-label="See who liked this post">♥ ${Number(p.likeCount)||0} likes · See who</button></div>
-      <div class="post-actions"><button data-action="like" class="${liked?"liked":""}" ${currentUser?"":"disabled"}><span>${liked?"♥":"♡"}</span>Like</button>
-      <button data-action="comment"><span>▢</span>Comment</button><button data-action="share"><span>↗</span>Share</button><button data-action="copy-link"><span>🔗</span>Copy link</button></div>
+      <div class="stats"><button type="button" data-action="likers" aria-label="See who reacted">👍 ${Number(p.likeCount)||0} reactions · See who</button></div>
+      <div class="post-actions">
+        <div class="reaction-wrap">
+          <button type="button" data-action="reaction-toggle" class="${liked?"liked":""}" aria-expanded="false"><span>${reactionNames[reaction]||"👍 Like"}</span></button>
+          <div class="reaction-picker" hidden>
+            <button type="button" data-reaction="like" aria-label="Like">👍</button>
+            <button type="button" data-reaction="love" aria-label="Love">❤️</button>
+            <button type="button" data-reaction="care" aria-label="Care">🥰</button>
+            <button type="button" data-reaction="haha" aria-label="Haha">😂</button>
+            <button type="button" data-reaction="wow" aria-label="Wow">😮</button>
+            <button type="button" data-reaction="sad" aria-label="Sad">😢</button>
+            <button type="button" data-reaction="angry" aria-label="Angry">😡</button>
+          </div>
+        </div>
+        <button type="button" data-action="comment"><span>▢</span>Comment</button>
+        <button type="button" data-action="share"><span>↗</span>Share</button>
+      </div>
     </article>`;
   }).join("") : '<article class="post"><p class="post-text">No posts yet. Be the first to share something!</p></article>';
 }
@@ -178,27 +201,63 @@ $("postForm").addEventListener("submit",async e=>{
 });
 $("search").addEventListener("input",render); $("sort").addEventListener("change",render);
 $("posts").addEventListener("click",async e=>{
-  const b=e.target.closest("[data-action]"); if(!b)return;
-  const p=posts.find(x=>x.id===b.closest("[data-id]")?.dataset.id); if(!p)return;
+  const card=e.target.closest("[data-id]");if(!card)return;
+  const p=posts.find(x=>x.id===card.dataset.id);if(!p)return;
+  const action=e.target.closest("[data-action]");
+  const reactionButton=e.target.closest("[data-reaction]");
   try {
-    if(b.dataset.action==="likers"){ await showPostLikers(p);
-    } else if(b.dataset.action==="like"){
+    if(action?.dataset.action==="menu"){
+      const menu=card.querySelector(".post-menu-list");const open=menu.hidden;
+      document.querySelectorAll(".post-menu-list,.reaction-picker").forEach(x=>x.hidden=true);
+      menu.hidden=!open;action.setAttribute("aria-expanded",String(open));return;
+    }
+    if(action?.dataset.action==="reaction-toggle"){
+      const picker=card.querySelector(".reaction-picker");const open=picker.hidden;
+      document.querySelectorAll(".reaction-picker,.post-menu-list").forEach(x=>x.hidden=true);
+      picker.hidden=!open;action.setAttribute("aria-expanded",String(open));return;
+    }
+    if(reactionButton){
       if(!currentUser){$("authOpen").click();return;}
-      const liked=(p.likes||[]).includes(currentUser.uid);
-      await updateDoc(doc(db,"posts",p.id),{likes:liked?arrayRemove(currentUser.uid):arrayUnion(currentUser.uid),likeCount:Math.max(0,(p.likeCount||0)+(liked?-1:1))});
-      if(!liked && p.authorUid && p.authorUid!==currentUser.uid){
-        await addDoc(collection(db,"users",p.authorUid,"notifications"),{type:"like",fromUid:currentUser.uid,postId:p.id,text:(currentUser.displayName||"A member")+" liked your post.",createdAt:serverTimestamp(),read:false}).catch(err=>console.warn("Like notification failed:",err));
+      const type=reactionButton.dataset.reaction,ref=doc(db,"posts",p.id,"reactions",currentUser.uid);
+      const existing=await getDoc(ref),liked=(p.likes||[]).includes(currentUser.uid);
+      if(existing.exists()&&existing.data().type===type){
+        await deleteDoc(ref);
+        if(liked)await updateDoc(doc(db,"posts",p.id),{likes:arrayRemove(currentUser.uid),likeCount:Math.max(0,(p.likeCount||0)-1)});
+        p.myReaction="";
+      }else{
+        await setDoc(ref,{uid:currentUser.uid,type,createdAt:serverTimestamp()});
+        if(!liked)await updateDoc(doc(db,"posts",p.id),{likes:arrayUnion(currentUser.uid),likeCount:(p.likeCount||0)+1});
+        p.myReaction=type;
+        if(!liked&&p.authorUid&&p.authorUid!==currentUser.uid)await addDoc(collection(db,"users",p.authorUid,"notifications"),{type:"like",fromUid:currentUser.uid,postId:p.id,text:(currentUser.displayName||"A member")+" reacted to your post.",createdAt:serverTimestamp(),read:false}).catch(err=>console.warn("Reaction notification failed:",err));
       }
-    } else if(b.dataset.action==="edit" && p.authorUid===currentUser?.uid){
+      render();return;
+    }
+    if(!action)return;
+    if(action.dataset.action==="likers"){await showPostLikers(p);
+    }else if(action.dataset.action==="save"){
+      if(!currentUser){$("authOpen").click();return;}
+      const ref=doc(db,"bookmarks",currentUser.uid,"items",p.id),snap=await getDoc(ref);
+      if(snap.exists()){await deleteDoc(ref);toast("Removed from Saved.");action.innerHTML="▱ <span>Save post</span>";}
+      else{await setDoc(ref,{postId:p.id,createdAt:serverTimestamp()});toast("Post saved.");action.innerHTML="▣ <span>Saved</span>";}
+    }else if(action.dataset.action==="block"){
+      if(!currentUser){$("authOpen").click();return;}
+      if(p.authorUid===currentUser.uid)return;
+      if(confirm("Block this member? Their posts will be hidden.")){
+        await setDoc(doc(db,"blocks",currentUser.uid,"users",p.authorUid),{uid:p.authorUid,createdAt:serverTimestamp()});
+        document.querySelectorAll('#posts .post[data-author-uid="'+CSS.escape(p.authorUid)+'"]').forEach(el=>el.remove());
+        toast("Member blocked.");
+      }
+    }else if(action.dataset.action==="edit"&&p.authorUid===currentUser?.uid){
       const edited=window.prompt("Edit your post",p.text);if(edited===null)return;if(!edited.trim()){toast("Post cannot be empty.");return;}await updateDoc(doc(db,"posts",p.id),{text:edited.trim().slice(0,1000)});toast("Post updated.");
-    } else if(b.dataset.action==="delete" && p.authorUid===currentUser?.uid){
-      if(confirm("Delete this post?")){await deleteDoc(doc(db,"posts",p.id));}
-    } else if(b.dataset.action==="share" || b.dataset.action==="copy-link"){
+    }else if(action.dataset.action==="delete"&&p.authorUid===currentUser?.uid){
+      if(confirm("Delete this post?"))await deleteDoc(doc(db,"posts",p.id));
+    }else if(action.dataset.action==="share"||action.dataset.action==="copy-link"){
       const url=new URL(location.href);url.search="";url.searchParams.set("post",p.id);url.hash="";
-      if(b.dataset.action==="share"&&navigator.share)await navigator.share({title:"MILOOP post",text:p.text,url:url.href});else{await copyText(url.href);toast("Post link copied.");}
-    } else if(b.dataset.action==="comment") openComments(p);
-  } catch(error){if(error.name!=="AbortError"){console.error(error);toast("Action failed. Please try again.");}}
+      if(action.dataset.action==="share"&&navigator.share)await navigator.share({title:"MILOOP post",text:p.text,url:url.href});else{await copyText(url.href);toast("Post link copied.");}
+    }else if(action.dataset.action==="comment")openComments(p);
+  }catch(error){if(error.name!=="AbortError"){console.error(error);toast("Action failed: "+(error.code||"Please try again."));}}
 });
+document.addEventListener("click",e=>{if(!e.target.closest(".post-menu-wrap,.reaction-wrap"))document.querySelectorAll(".post-menu-list,.reaction-picker").forEach(x=>x.hidden=true)});
 // Profile, messages, notifications, stories and discovery are handled by social-features.js.
 // Keep placeholder click handlers out of this file so they cannot override real feature panels.
 $("invite").addEventListener("click",async()=>{
