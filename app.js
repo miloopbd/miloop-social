@@ -4,7 +4,7 @@ import { collection, addDoc, setDoc, onSnapshot, query, orderBy, serverTimestamp
 
 const $ = id => document.getElementById(id);
 const dialog = $("postDialog"), textarea = $("postText");
-let currentUser = null, posts = [], stopPosts = null, stopComments = null, stopAnnouncements = null, activePostId = null, toastTimer;
+let currentUser = null, posts = [], regularPosts = [], groupPosts = [], stopPosts = null, stopGroups = null, groupPostStops = new Map(), stopComments = null, stopAnnouncements = null, activePostId = null, toastTimer;
 const postBackgrounds={plain:"linear-gradient(135deg,#f7f9fc,#edf2f8)",sunset:"linear-gradient(135deg,#ffedd5,#fecaca)",ocean:"linear-gradient(135deg,#dbeafe,#bfdbfe)",mint:"linear-gradient(135deg,#d1fae5,#a7f3d0)",lavender:"linear-gradient(135deg,#ede9fe,#ddd6fe)",rose:"linear-gradient(135deg,#ffe4e6,#fecdd3)",night:"linear-gradient(135deg,#334155,#0f172a)"};
 const postFeelings={happy:"😊 feeling happy",excited:"🤩 feeling excited",grateful:"🙏 feeling grateful",loved:"🥰 feeling loved",motivated:"💪 feeling motivated",thoughtful:"🤔 feeling thoughtful",celebrating:"🎉 celebrating"};
 const postStyle=document.createElement("style");postStyle.textContent=".post-content{border-radius:14px;padding:15px;margin:8px 0;min-height:42px;white-space:pre-wrap;overflow-wrap:anywhere}.post-content.night{color:#fff}.post-feeling{display:block;font-size:11px;color:#6b7890;margin:5px 0 8px}.post-content.night+.post-feeling{color:#64748b}.post-customize{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.post-customize label{font-size:11px;color:#64748b}.post-customize select{box-sizing:border-box;width:100%;margin-top:5px;padding:10px;border:1px solid #dce4ef;border-radius:9px;background:#fff;color:#17233d;font:12px inherit}@media(max-width:480px){.post-customize{grid-template-columns:1fr}}";document.head.append(postStyle);
@@ -34,7 +34,7 @@ function render() {
     const reactionNames = {like:"👍 Like",love:"❤️ Love",care:"🥰 Care",haha:"😂 Haha",wow:"😮 Wow",sad:"😢 Sad",angry:"😡 Angry"};
     return `<article class="post" data-id="${safe(p.id)}" data-author-uid="${safe(p.authorUid)}">
       <div class="post-head"><div class="avatar">${safe(initials(p.authorName))}</div>
-      <div class="post-author"><b><button type="button" class="post-author-link" data-profile-uid="${safe(p.authorUid)}">${safe(p.authorName||"MILOOP member")}</button>${p.isVerified?'<span class="md-verified" title="Verified MILOOP profile">✓ Verified</span>':""}</b><small>${safe(relativeTime(p.createdAt))}</small></div>
+      <div class="post-author"><b><button type="button" class="post-author-link" data-profile-uid="${safe(p.authorUid)}">${safe(p.authorName||"MILOOP member")}</button>${p.isGroupPost?`<span class="group-feed-context">in <b>${safe(p.groupName||"Group")}</b></span>`:""}${p.isVerified?'<span class="md-verified" title="Verified MILOOP profile">✓ Verified</span>':""}</b><small>${safe(relativeTime(p.createdAt))}</small></div>
       <div class="post-menu-wrap"><button type="button" class="post-menu" data-action="menu" aria-label="Post options" aria-expanded="false">•••</button>
         <div class="post-menu-list" hidden>
           <button type="button" data-action="save">▱ <span>Save post</span></button>
