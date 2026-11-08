@@ -387,9 +387,25 @@ $("invite").addEventListener("click",async()=>{
 onAuthStateChanged(auth,user=>{currentUser=user;render();watchAnnouncements();});
 stopPosts=onSnapshot(query(collection(db,"posts"),orderBy("createdAt","desc")),async snapshot=>{
   regularPosts=snapshot.docs.map(d=>({id:d.id,...d.data()}));
-  const authorIds=[...new Set(posts.map(p=>p.authorUid).filter(Boolean))];
-  await Promise.all(authorIds.map(async uid=>{try{const profile=await getDoc(doc(db,"publicProfiles",uid));const verified=profile.exists()&&profile.data().verified===true;posts.filter(p=>p.authorUid===uid).forEach(p=>p.isVerified=verified);}catch(e){console.warn("Could not load verified profile flag:",e);}}));
-  if(currentUser){await Promise.all(posts.map(async p=>{try{const mine=await getDoc(doc(db,"posts",p.id,"reactions",currentUser.uid));p.myReaction=mine.exists()?mine.data().type:"";}catch(err){console.warn("Could not load reaction:",err);}}));}
+  const authorIds=[...new Set(regularPosts.map(p=>p.authorUid).filter(Boolean))];
+  await Promise.all(authorIds.map(async uid=>{try{const profile=await getDoc(doc(db,"publicProfiles",uid));const verified=profile.exists()&&profile.data().verified===true;regularPosts.filter(p=>p.authorUid===uid).forEach(p=>p.isVerified=verified);}catch(e){console.warn("Could not load verified profile flag:",e);}}));
+  if(currentUser){await Promise.all(regularPosts.map(async p=>{try{const mine=await getDoc(doc(db,"posts",p.id,"reactions",currentUser.uid));p.myReaction=mine.exists()?mine.data().type:"";}catch(err){console.warn("Could not load reaction:",err);}}));}
+  posts=[...regularPosts,...groupPosts].sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
   render();
   const targetPost=new URLSearchParams(location.search).get("post");if(targetPost){const card=[...document.querySelectorAll("[data-id]")].find(el=>el.dataset.id===targetPost);if(card){card.scrollIntoView({behavior:"smooth",block:"center"});card.style.outline="3px solid #155eef";card.style.outlineOffset="3px";}}
 },error=>{console.error("MILOOP posts listener:",error);toast("Could not load posts. Check Firestore rules.");});
+stopGroups=onSnapshot(query(collection(db,"groups"),orderBy("createdAt","desc"),limit(40)),snap=>{
+ const ids=new Set(snap.docs.map(d=>d.id));
+ for(const [gid,stop] of groupPostStops){if(!ids.has(gid)){stop();groupPostStops.delete(gid);groupPosts=groupPosts.filter(p=>p.groupId!==gid);}}
+ for(const gd of snap.docs){
+  const gid=gd.id,group=gd.data();if(groupPostStops.has(gid))continue;
+  const stop=onSnapshot(query(collection(db,"groups",gid,"posts"),orderBy("createdAt","desc"),limit(15)),async ps=>{
+   const mapped=await Promise.all(ps.docs.map(async pd=>{
+    const v=pd.data(),uid=v.uid||"";let verified=false;
+    try{const profile=await getDoc(doc(db,"publicProfiles",uid));verified=profile.exists()&&profile.data().verified===true;}catch(_){}
+    return {id:"group_"+gid+"_"+pd.id,groupPostId:pd.id,groupId:gid,isGroupPost:true,groupName:group.name||"Group",groupVerified:group.verified===true,authorUid:uid,authorName:v.displayName||"MILOOP member",text:v.text||"",createdAt:v.createdAt,likeCount:0,likes:[],isVerified:verified};
+   }));
+   groupPosts=[...groupPosts.filter(p=>p.groupId!==gid),...mapped];posts=[...regularPosts,...groupPosts].sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));render();
+  },err=>console.warn("Group feed listener:",gid,err));groupPostStops.set(gid,stop);
+ }
+},err=>console.warn("Groups feed listener:",err));
