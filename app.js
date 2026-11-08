@@ -4,7 +4,7 @@ import { collection, addDoc, setDoc, onSnapshot, query, orderBy, serverTimestamp
 
 const $ = id => document.getElementById(id);
 const dialog = $("postDialog"), textarea = $("postText");
-let currentUser = null, posts = [], stopPosts = null, stopComments = null, activePostId = null, toastTimer;
+let currentUser = null, posts = [], stopPosts = null, stopComments = null, stopAnnouncements = null, activePostId = null, toastTimer;
 function toast(message) {
   const el = $("toast"); el.textContent = message; el.classList.add("show");
   clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 2500);
@@ -61,6 +61,31 @@ function render() {
     </article>`;
   }).join("") : '<article class="post"><p class="post-text">No posts yet. Be the first to share something!</p></article>';
 }
+
+// Announcements published by admins appear above the community feed for signed-in members.
+const announcementStyle=document.createElement("style");
+announcementStyle.textContent=".miloop-announcements-feed{display:grid;gap:9px;margin:0 0 14px}.miloop-announcement-card{position:relative;background:#eef4ff;border:1px solid #d9e6ff;border-left:4px solid #155eef;border-radius:13px;padding:13px 42px 13px 14px}.miloop-announcement-card small{display:block;color:#155eef;font-size:10px;font-weight:800;letter-spacing:.04em;margin-bottom:4px}.miloop-announcement-card b{display:block;color:#17233d;font-size:14px;margin-bottom:4px}.miloop-announcement-card p{margin:0;color:#52617a;font-size:12px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.miloop-announcement-card button{position:absolute;right:9px;top:8px;border:0;background:transparent;color:#71809a;font-size:20px;cursor:pointer}";
+document.head.append(announcementStyle);
+const announcementFeed=document.createElement("section");
+announcementFeed.id="miloop-announcements-feed";
+announcementFeed.className="miloop-announcements-feed";
+announcementFeed.hidden=true;
+const welcomeSection=document.querySelector(".feed .welcome");
+if(welcomeSection)welcomeSection.insertAdjacentElement("afterend",announcementFeed);
+function watchAnnouncements(){
+ if(stopAnnouncements){stopAnnouncements();stopAnnouncements=null;}
+ announcementFeed.hidden=true;announcementFeed.innerHTML="";
+ if(!currentUser)return;
+ stopAnnouncements=onSnapshot(query(collection(db,"announcements"),orderBy("createdAt","desc"),limit(10)),snap=>{
+  const items=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.active===true).slice(0,5);
+  announcementFeed.innerHTML=items.map(x=>'<article class="miloop-announcement-card" data-announcement="'+safe(x.id)+'"><small>📢 MILOOP ANNOUNCEMENT</small><b>'+safe(x.title||"Announcement")+'</b><p>'+safe(x.message||"")+'</p><button type="button" data-dismiss-announcement="'+safe(x.id)+'" aria-label="Dismiss announcement">×</button></article>').join("");
+  announcementFeed.hidden=!items.length;
+ },err=>{console.warn("MILOOP announcements could not load:",err);announcementFeed.hidden=true;});
+}
+announcementFeed.addEventListener("click",e=>{
+ const button=e.target.closest("[data-dismiss-announcement]");
+ if(button){button.closest(".miloop-announcement-card")?.remove();announcementFeed.hidden=!announcementFeed.children.length;}
+});
 
 const commentsDialog = $("commentsDialog");
 const commentForm = $("commentForm");
@@ -356,7 +381,7 @@ document.addEventListener("click",e=>{if(!e.target.closest(".post-menu-wrap,.rea
 $("invite").addEventListener("click",async()=>{
   try{if(navigator.share)await navigator.share({title:"Join me on MILOOP",text:"Connect. Share. Belong.",url:location.href});else{await navigator.clipboard.writeText(location.href);toast("Page link copied.");}}catch(e){if(e.name!=="AbortError")toast("Could not share right now.");}
 });
-onAuthStateChanged(auth,user=>{currentUser=user;render();});
+onAuthStateChanged(auth,user=>{currentUser=user;render();watchAnnouncements();});
 stopPosts=onSnapshot(query(collection(db,"posts"),orderBy("createdAt","desc")),async snapshot=>{
   posts=snapshot.docs.map(d=>({id:d.id,...d.data()}));
   if(currentUser){await Promise.all(posts.map(async p=>{try{const mine=await getDoc(doc(db,"posts",p.id,"reactions",currentUser.uid));p.myReaction=mine.exists()?mine.data().type:"";}catch(err){console.warn("Could not load reaction:",err);}}));}
