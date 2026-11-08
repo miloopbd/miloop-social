@@ -355,7 +355,7 @@ service cloud.firestore {
         allow update: if false;
       }
       match /posts/{postId} {
-        allow read: if isGroupMember(groupId);
+        allow read: if activeMember();
         allow create: if isGroupMember(groupId)
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.displayName is string
