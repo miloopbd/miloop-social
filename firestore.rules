@@ -62,7 +62,8 @@ service cloud.firestore {
         && (!('college' in request.resource.data) || request.resource.data.college is string)
         && (!('university' in request.resource.data) || request.resource.data.university is string)
         && (!('city' in request.resource.data) || request.resource.data.city is string);
-      allow update: if activeMember() && request.auth.uid == userId
+      allow update: if (
+        activeMember() && request.auth.uid == userId
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verified','verifiedAt'])
         && request.resource.data.uid == userId
         && request.resource.data.displayName is string
@@ -76,7 +77,14 @@ service cloud.firestore {
         && (!('dateOfBirth' in request.resource.data) || request.resource.data.dateOfBirth is string)
         && (!('college' in request.resource.data) || request.resource.data.college is string)
         && (!('university' in request.resource.data) || request.resource.data.university is string)
-        && (!('city' in request.resource.data) || request.resource.data.city is string);
+        && (!('city' in request.resource.data) || request.resource.data.city is string)
+      ) || (
+        isAdmin()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verified','verifiedAt'])
+        && request.resource.data.verified is bool
+        && request.resource.data.verifiedAt == request.time
+      );
       allow delete: if false;
     }
 
@@ -365,6 +373,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt'])
         && request.resource.data.reviewedBy == request.auth.uid
+        && request.resource.data.reviewedAt == request.time
         && request.resource.data.status in ['approved','rejected'];
       allow delete: if false;
     }
