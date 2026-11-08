@@ -104,6 +104,10 @@ commentForm.addEventListener("submit",async e=>{
       displayName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",
       text,createdAt:serverTimestamp()
     });
+    const parentPost=posts.find(p=>p.id===activePostId);
+    if(parentPost?.authorUid && parentPost.authorUid!==currentUser.uid){
+      await addDoc(collection(db,"users",parentPost.authorUid,"notifications"),{type:"comment",fromUid:currentUser.uid,postId:activePostId,text:(currentUser.displayName||"A member")+" commented on your post.",createdAt:serverTimestamp(),read:false}).catch(err=>console.warn("Comment notification failed:",err));
+    }
     commentText.value="";
   }catch(err){console.error(err);toast("Could not add comment. Check Firestore Rules.");}
   finally{if(submit)submit.disabled=false;}
@@ -182,6 +186,9 @@ $("posts").addEventListener("click",async e=>{
       if(!currentUser){$("authOpen").click();return;}
       const liked=(p.likes||[]).includes(currentUser.uid);
       await updateDoc(doc(db,"posts",p.id),{likes:liked?arrayRemove(currentUser.uid):arrayUnion(currentUser.uid),likeCount:Math.max(0,(p.likeCount||0)+(liked?-1:1))});
+      if(!liked && p.authorUid && p.authorUid!==currentUser.uid){
+        await addDoc(collection(db,"users",p.authorUid,"notifications"),{type:"like",fromUid:currentUser.uid,postId:p.id,text:(currentUser.displayName||"A member")+" liked your post.",createdAt:serverTimestamp(),read:false}).catch(err=>console.warn("Like notification failed:",err));
+      }
     } else if(b.dataset.action==="edit" && p.authorUid===currentUser?.uid){
       const edited=window.prompt("Edit your post",p.text);if(edited===null)return;if(!edited.trim()){toast("Post cannot be empty.");return;}await updateDoc(doc(db,"posts",p.id),{text:edited.trim().slice(0,1000)});toast("Post updated.");
     } else if(b.dataset.action==="delete" && p.authorUid===currentUser?.uid){
