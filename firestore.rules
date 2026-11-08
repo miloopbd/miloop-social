@@ -456,7 +456,7 @@ service cloud.firestore {
     match /posts/{postId} {
       allow read: if true;
       allow create: if activeMember()
-        && request.resource.data.keys().hasOnly(['authorUid','authorName','text','mediaUrl','mediaType','mediaPath','createdAt','likes','likeCount'])
+        && request.resource.data.keys().hasOnly(['authorUid','authorName','text','mediaUrl','mediaType','mediaPath','createdAt','likes','likeCount','background','feeling'])
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorName is string
         && request.resource.data.authorName.size() > 0
@@ -467,6 +467,8 @@ service cloud.firestore {
         && request.resource.data.likes is list
         && request.resource.data.likes.size() == 0
         && request.resource.data.likeCount == 0
+        && (!('background' in request.resource.data) || request.resource.data.background in ['plain','sunset','ocean','mint','lavender','rose','night'])
+        && (!('feeling' in request.resource.data) || request.resource.data.feeling in ['','happy','excited','grateful','loved','motivated','thoughtful','celebrating'])
         && request.resource.data.createdAt == request.time;
 
       allow update: if (
