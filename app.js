@@ -261,19 +261,27 @@ async function runSearch(){
   render();
   if(term.length<2){hideSearchResults();return;}
   searchResults.hidden=false;searchResults.innerHTML='<div class="search-result-note">Searching…</div>';
-  try{
-    if(!searchProfilesCache){
-      const snap=await getDocs(query(collection(db,"publicProfiles"),limit(150)));
-      searchProfilesCache=snap.docs.map(d=>({uid:d.id,...d.data()}));
+  let people=[],profileMessage="";
+  if(currentUser){
+    try{
+      if(!searchProfilesCache){
+        const snap=await getDocs(query(collection(db,"publicProfiles"),limit(150)));
+        searchProfilesCache=snap.docs.map(d=>({uid:d.id,...d.data()}));
+      }
+      people=searchProfilesCache.filter(p=>(p.displayName||p.name||"").toLowerCase().includes(term)).slice(0,6);
+    }catch(e){
+      console.error("MILOOP member search failed:",e);
+      profileMessage=e.code==="permission-denied"?"Member search is blocked by Firestore Rules. Publish the latest firestore.rules.":"Could not load members ("+(e.code||"network error")+").";
     }
-    if(request!==searchRequest)return;
-    const people=searchProfilesCache.filter(p=>(p.displayName||p.name||"").toLowerCase().includes(term)).slice(0,6);
-    const matchingPosts=posts.filter(p=>((p.text||"")+" "+(p.authorName||"")).toLowerCase().includes(term)).slice(0,8);
-    let html="";
-    if(people.length)html+='<div class="search-result-heading">People</div>'+people.map(p=>'<button type="button" class="search-result" data-profile-uid="'+safe(p.uid)+'"><span class="search-result-avatar">'+safe(initials(p.displayName||p.name))+'</span><span><b>'+safe(p.displayName||p.name||"MILOOP member")+'</b><small>View profile</small></span><span class="search-result-arrow">›</span></button>').join("");
-    if(matchingPosts.length)html+='<div class="search-result-heading">Posts</div>'+matchingPosts.map(p=>'<button type="button" class="search-result search-post" data-search-post="'+safe(p.id)+'"><span class="search-result-avatar">▤</span><span><b>'+safe(p.authorName||"MILOOP member")+'</b><small>'+safe((p.text||"").slice(0,90))+'</small></span><span class="search-result-arrow">›</span></button>').join("");
-    searchResults.innerHTML=html||'<div class="search-result-note">No people or posts found.</div>';
-  }catch(e){console.error("MILOOP search failed:",e);if(request===searchRequest)searchResults.innerHTML='<div class="search-result-note">Search could not load. Check Firestore Rules.</div>';}
+  }else profileMessage="Sign in to search members.";
+  if(request!==searchRequest)return;
+  const matchingPosts=posts.filter(p=>((p.text||"")+" "+(p.authorName||"")).toLowerCase().includes(term)).slice(0,8);
+  let html="";
+  if(people.length)html+='<div class="search-result-heading">People</div>'+people.map(p=>'<button type="button" class="search-result" data-profile-uid="'+safe(p.uid)+'"><span class="search-result-avatar">'+safe(initials(p.displayName||p.name))+'</span><span><b>'+safe(p.displayName||p.name||"MILOOP member")+'</b><small>View profile</small></span><span class="search-result-arrow">›</span></button>').join("");
+  if(matchingPosts.length)html+='<div class="search-result-heading">Posts</div>'+matchingPosts.map(p=>'<button type="button" class="search-result search-post" data-search-post="'+safe(p.id)+'"><span class="search-result-avatar">▤</span><span><b>'+safe(p.authorName||"MILOOP member")+'</b><small>'+safe((p.text||"").slice(0,90))+'</small></span><span class="search-result-arrow">›</span></button>').join("");
+  if(profileMessage)html+='<div class="search-result-note">'+safe(profileMessage)+'</div>';
+  if(!html)html='<div class="search-result-note">No people or posts found.</div>';
+  searchResults.innerHTML=html;
 }
 searchBox.addEventListener("input",runSearch);
 searchBox.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();runSearch();}if(e.key==="Escape")hideSearchResults();});
