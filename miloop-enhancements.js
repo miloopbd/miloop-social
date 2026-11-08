@@ -24,7 +24,7 @@ if (panel && !document.getElementById("miloopTrendingLive")) {
       const counts = new Map();
       snap.docs.forEach(d => {
         const text = d.data().text || "";
-        const tags = text.match(/#[\\p{L}\\p{N}_]{2,30}/gu) || [];
+        const tags = text.match(/#[\p{L}\p{N}_]{2,30}/gu) || [];
         tags.forEach(tag => {
           const key = tag.toLowerCase();
           const entry = counts.get(key) || { tag, count: 0 };
