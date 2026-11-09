@@ -62,33 +62,57 @@ async function render(tab){
  }catch(e){console.error("Community Hub:",e);$("hubContent").innerHTML='<div class="hub-card">Could not load this feature: '+esc(e.code||e.message||"Unknown error")+'. Check the latest Firestore Rules.</div>';}
 }
 async function monetization(){
+ const adminSnap=await getDoc(doc(db,"admins",user.uid));
+ const isAdmin=adminSnap.exists()&&adminSnap.data().enabled===true&&adminSnap.data().role==="admin";
  setContent("MILOOP Monetization",`
- <div class="hub-monet-hero"><div><span class="hub-monet-tag">CREATOR ECONOMY · PREVIEW</span><h3>Build value with your community.</h3><p>Explore future earning tools for creators and community partners.</p></div><div class="hub-monet-mark">M</div></div>
+ <div class="hub-monet-hero"><div><span class="hub-monet-tag">MILOOP CREATOR ECONOMY</span><h3>Grow your community with care.</h3><p>Premium, sponsored content and creator support — managed transparently.</p></div><div class="hub-monet-mark">M</div></div>
  <div class="hub-monet-grid">
-  <article class="hub-monet-card"><span class="hub-monet-icon">✦</span><h3>MILOOP Premium</h3><p>Optional profile themes, exclusive badge, custom profile accents and future premium features.</p><span class="hub-monet-status">Planned feature</span><button class="hub-btn" type="button" data-monet-action="premium">Explore Premium</button></article>
-  <article class="hub-monet-card"><span class="hub-monet-icon">▣</span><h3>Sponsored Posts</h3><p>Clearly labelled partner posts may help brands reach the community. Sponsored content will be reviewed before display.</p><span class="hub-monet-status">Admin-managed · Preview</span><button class="hub-btn" type="button" data-monet-action="sponsor">Create ad preview</button></article>
-  <article class="hub-monet-card"><span class="hub-monet-icon">♡</span><h3>Support Creator</h3><p>A future way for community members to appreciate creators. No payment is collected in this preview.</p><span class="hub-monet-status">Coming later</span><button class="hub-btn" type="button" data-monet-action="support">See creator support</button></article>
+  <article class="hub-monet-card"><span class="hub-monet-icon">✦</span><h3>MILOOP Premium</h3><p>Optional profile themes, premium badge and extra profile customization.</p><span class="hub-monet-status">Interest registration</span><button class="hub-btn" type="button" data-monet-action="premium">Request early access</button></article>
+  <article class="hub-monet-card"><span class="hub-monet-icon">▣</span><h3>Sponsored Posts</h3><p>Submit a partner campaign for review. Approved content must be clearly labelled.</p><span class="hub-monet-status">Admin review required</span><button class="hub-btn" type="button" data-monet-action="sponsor">Submit campaign</button></article>
+  <article class="hub-monet-card"><span class="hub-monet-icon">♡</span><h3>Support Creator</h3><p>Register interest in future creator appreciation features. No payments are collected.</p><span class="hub-monet-status">Interest registration</span><button class="hub-btn" type="button" data-monet-action="support">Register interest</button></article>
  </div>
- <div id="monetActionPanel" class="hub-card"><h3>Monetization overview</h3><p>All three modules are included in this preview. Payment collection, subscriptions and creator payouts are not active.</p><div class="hub-monet-stats"><div><b>3</b><small>Modules planned</small></div><div><b>0</b><small>Live payments</small></div><div><b>0</b><small>Active campaigns</small></div></div></div>
- <div class="hub-card"><div class="hub-monet-head"><div><h3>Admin Monetization Desk</h3><p>Manage future premium access and sponsored content proposals.</p></div><span class="hub-monet-status">Demo dashboard</span></div>
-  <div class="hub-monet-admin-grid"><div><b>Premium members</b><strong>0</strong><small>Demo data only</small></div><div><b>Campaigns</b><strong>0</strong><small>Demo data only</small></div><div><b>Creator support</b><strong>Not active</strong><small>Payment feature off</small></div></div>
-  <form id="sponsorPreviewForm" class="hub-form hub-monet-form"><h3>Sponsored post preview</h3><input id="sponsorBrand" maxlength="60" placeholder="Partner / brand name" required><input id="sponsorTitle" maxlength="100" placeholder="Campaign headline" required><textarea id="sponsorDescription" maxlength="400" placeholder="Write a short, honest description" required></textarea><button class="hub-btn" type="submit">Preview sponsored post</button></form>
-  <div id="sponsorPreview" aria-live="polite"></div>
- </div>
- <p class="hub-safe">Safety & transparency: Sponsored posts must be clearly labelled and reviewed. Any real subscription, advertising agreement or money transfer must be arranged by a responsible adult and comply with applicable laws and provider rules. MILOOP does not collect payment details here.</p>`);
- const panel=$("monetActionPanel");
- document.querySelectorAll("[data-monet-action]").forEach(b=>b.onclick=()=>{
-  const type=b.dataset.monetAction;
-  if(type==="premium") panel.innerHTML='<h3>✦ MILOOP Premium</h3><p>Planned benefits: Premium profile badge, profile themes, extra profile customization and optional community perks.</p><span class="hub-monet-status">Preview only · No subscription available</span>';
-  if(type==="sponsor") $("sponsorBrand")?.focus();
-  if(type==="support") panel.innerHTML='<h3>♡ Support Creator</h3><p>Creator appreciation is planned for a later release. No money, card details or payout information is requested or processed.</p><span class="hub-monet-status">Not active</span>';
- });
- $("sponsorPreviewForm").onsubmit=e=>{
-  e.preventDefault();
-  const brand=esc($("sponsorBrand").value.trim()),title=esc($("sponsorTitle").value.trim()),desc=esc($("sponsorDescription").value.trim());
-  $("sponsorPreview").innerHTML='<article class="hub-monet-preview"><span class="hub-monet-status">SPONSORED · PREVIEW ONLY</span><h3>'+title+'</h3><b>'+brand+'</b><p>'+desc+'</p><small>This is a local preview. It has not been published or sent to anyone.</small></article>';
+ <div id="monetActionPanel" class="hub-card"><h3>How it works</h3><p>Premium and creator support are interest-only for now. Sponsored campaigns are sent to the MILOOP admin review queue and are not published automatically.</p></div>
+ <div class="hub-card"><h3 id="monetFormTitle">Submit a campaign</h3><form id="monetRequestForm" class="hub-form">
+ <input type="hidden" id="monetType" value="sponsored">
+ <input id="monetName" maxlength="70" placeholder="Your name / organization" required>
+ <input id="monetTitle" maxlength="100" placeholder="Campaign or request title" required>
+ <textarea id="monetDetails" maxlength="500" placeholder="Describe your request. Do not include phone, payment or bank details." required></textarea>
+ <button class="hub-btn" type="submit">Send for review</button>
+ </form><p class="hub-muted">Requests are private to you and authorized MILOOP admins.</p></div>
+ <div id="monetRequests"></div>
+ ${isAdmin?`<div class="hub-card"><div class="hub-monet-head"><div><h3>Admin Review Desk</h3><p>Review requests before approving or rejecting. Approval does not publish an ad or activate a paid service.</p></div><span class="hub-monet-status">Admin only</span></div><div id="monetAdminQueue">Loading requests…</div></div>`:""}
+ <p class="hub-safe">No payments, subscriptions, payouts or card details are processed. Any future real-money feature needs responsible adult oversight and provider/legal approval. Sponsored content must be truthful, suitable for the community and clearly labelled.</p>`);
+ const setType=(type,title,placeholder)=>{
+  $("monetType").value=type;$("monetFormTitle").textContent=title;
+  $("monetTitle").placeholder=placeholder;
+  $("monetActionPanel").innerHTML='<h3>'+title+'</h3><p>'+({premium:"Register your interest in future MILOOP Premium features. This is not a subscription.",sponsored:"Send campaign details to the admin review queue. Nothing is published until separately reviewed.",creator:"Register interest in future creator appreciation tools. No money is collected."}[type])+'</p>';
+  $("monetRequestForm").scrollIntoView({behavior:"smooth",block:"center"});
  };
+ document.querySelectorAll("[data-monet-action]").forEach(b=>b.onclick=()=>{const t=b.dataset.monetAction;setType(t==="sponsor"?"sponsored":t==="premium"?"premium":"creator",t==="sponsor"?"Sponsored campaign request":t==="premium"?"Premium early-access request":"Creator support interest",t==="sponsor"?"Campaign headline":t==="premium"?"What Premium feature interests you?":"Creator name or profile");});
+ $("monetRequestForm").onsubmit=async e=>{
+  e.preventDefault();const btn=e.currentTarget.querySelector('button[type="submit"]');btn.disabled=true;
+  try{
+   await addDoc(collection(db,"monetizationRequests"),{uid:user.uid,displayName:name(),type:$("monetType").value,organization:$("monetName").value.trim(),title:$("monetTitle").value.trim(),details:$("monetDetails").value.trim(),status:"pending",createdAt:serverTimestamp()});
+   toast("Request sent for review.");e.currentTarget.reset();$("monetType").value="sponsored";$("monetTitle").placeholder="Campaign or request title";await loadMyRequests();
+   if(isAdmin) await loadAdminRequests();
+  }catch(err){toast("Could not send request: "+(err.code||err.message));}
+  finally{btn.disabled=false;}
+ };
+ async function loadMyRequests(){
+  const snap=await getDocs(query(collection(db,"monetizationRequests"),where("uid","==",user.uid),orderBy("createdAt","desc"),limit(15)));
+  $("monetRequests").innerHTML='<div class="hub-card"><h3>Your requests</h3>'+(snap.empty?'<p class="hub-muted">You have not submitted any requests yet.</p>':snap.docs.map(d=>{const x=d.data();return '<div class="hub-row"><div><b>'+esc(x.title)+'</b><small>'+esc(x.type)+' · '+esc(x.createdAt?.toDate?.().toLocaleDateString?.()||"Just now")+'</small></div><span class="hub-monet-status">'+esc(x.status)+'</span></div>';}).join(""))+'</div>';
+ }
+ async function loadAdminRequests(){
+  const target=$("monetAdminQueue");if(!target)return;
+  try{
+   const snap=await getDocs(query(collection(db,"monetizationRequests"),orderBy("createdAt","desc"),limit(50)));
+   target.innerHTML=snap.empty?'<div class="hub-empty">No requests to review.</div>':snap.docs.map(d=>{const x=d.data();return '<article class="hub-monet-preview"><div class="hub-monet-head"><b>'+esc(x.title)+'</b><span class="hub-monet-status">'+esc(x.status)+'</span></div><p>'+esc(x.details)+'</p><small>'+esc(x.type)+' · '+esc(x.organization)+' · '+esc(x.displayName)+'</small>'+(x.status==="pending"?'<div><button class="hub-btn" data-monet-review="'+d.id+'" data-status="approved">Approve request</button><button class="hub-btn alt" data-monet-review="'+d.id+'" data-status="rejected">Reject</button></div>':"")+'</article>';}).join("");
+   target.querySelectorAll("[data-monet-review]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{await setDoc(doc(db,"monetizationRequests",b.dataset.monetReview),{status:b.dataset.status,reviewedBy:user.uid,reviewedAt:serverTimestamp()},{merge:true});toast("Request "+b.dataset.status+".");await loadAdminRequests();await loadMyRequests();}catch(err){toast("Review failed: "+(err.code||err.message));b.disabled=false;}});
+  }catch(err){target.textContent="Could not load review queue: "+(err.code||err.message);}
+ }
+ await loadMyRequests();if(isAdmin)await loadAdminRequests();
 }
+
 async function polls(){
  setContent("Miloop Polls",'<div class="hub-card"><h3>Create a poll</h3><form id="pollForm" class="hub-form"><input id="pollTitle" maxlength="120" placeholder="Ask your community…" required><input class="pollChoice" maxlength="70" placeholder="Option 1" required><input class="pollChoice" maxlength="70" placeholder="Option 2" required><input class="pollChoice" maxlength="70" placeholder="Option 3 (optional)"><input class="pollChoice" maxlength="70" placeholder="Option 4 (optional)"><button class="hub-btn">Publish poll</button></form></div><div id="pollList">Loading polls…</div>');
  $("pollForm").onsubmit=async e=>{e.preventDefault();const choices=[...e.currentTarget.querySelectorAll(".pollChoice")].map(x=>x.value.trim()).filter(Boolean);if(choices.length<2||new Set(choices).size!==choices.length){toast("Add at least two different options.");return;}try{await addDoc(collection(db,"polls"),{title:$("pollTitle").value.trim(),options:choices,uid:user.uid,displayName:name(),createdAt:serverTimestamp()});toast("Poll published.");polls();}catch(err){toast("Poll failed: "+(err.code||err.message));}};
