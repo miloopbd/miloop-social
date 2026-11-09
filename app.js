@@ -77,7 +77,7 @@ function trackVisiblePostViews(){
     entries.forEach(async entry=>{
       if(!entry.isIntersecting || entry.intersectionRatio<0.6)return;
       const card=entry.target,postId=card.dataset.id,authorUid=card.dataset.authorUid;
-      if(!postId || !currentUser || viewedPostIds.has(postId) || authorUid===currentUser.uid)return;
+      if(!postId || !currentUser || viewedPostIds.has(postId) || authorUid===currentUser.uid || card.querySelector(".group-feed-context"))return;
       viewedPostIds.add(postId);
       const viewRef=doc(db,"posts",postId,"views",currentUser.uid);
       try{
