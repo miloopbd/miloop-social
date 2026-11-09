@@ -99,13 +99,14 @@ async function monetization(){
   finally{btn.disabled=false;}
  };
  async function loadMyRequests(){
-  const snap=await getDocs(query(collection(db,"monetizationRequests"),where("uid","==",user.uid),orderBy("createdAt","desc"),limit(15)));
+  const snap=await getDocs(query(collection(db,"monetizationRequests"),where("uid","==",user.uid),limit(30)));
   $("monetRequests").innerHTML='<div class="hub-card"><h3>Your requests</h3>'+(snap.empty?'<p class="hub-muted">You have not submitted any requests yet.</p>':snap.docs.map(d=>{const x=d.data();return '<div class="hub-row"><div><b>'+esc(x.title)+'</b><small>'+esc(x.type)+' · '+esc(x.createdAt?.toDate?.().toLocaleDateString?.()||"Just now")+'</small></div><span class="hub-monet-status">'+esc(x.status)+'</span></div>';}).join(""))+'</div>';
  }
  async function loadAdminRequests(){
   const target=$("monetAdminQueue");if(!target)return;
   try{
    const snap=await getDocs(query(collection(db,"monetizationRequests"),orderBy("createdAt","desc"),limit(50)));
+   snap.docs.sort((a,b)=>(b.data().createdAt?.toMillis?.()||0)-(a.data().createdAt?.toMillis?.()||0));
    target.innerHTML=snap.empty?'<div class="hub-empty">No requests to review.</div>':snap.docs.map(d=>{const x=d.data();return '<article class="hub-monet-preview"><div class="hub-monet-head"><b>'+esc(x.title)+'</b><span class="hub-monet-status">'+esc(x.status)+'</span></div><p>'+esc(x.details)+'</p><small>'+esc(x.type)+' · '+esc(x.organization)+' · '+esc(x.displayName)+'</small>'+(x.status==="pending"?'<div><button class="hub-btn" data-monet-review="'+d.id+'" data-status="approved">Approve request</button><button class="hub-btn alt" data-monet-review="'+d.id+'" data-status="rejected">Reject</button></div>':"")+'</article>';}).join("");
    target.querySelectorAll("[data-monet-review]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{await setDoc(doc(db,"monetizationRequests",b.dataset.monetReview),{status:b.dataset.status,reviewedBy:user.uid,reviewedAt:serverTimestamp()},{merge:true});toast("Request "+b.dataset.status+".");await loadAdminRequests();await loadMyRequests();}catch(err){toast("Review failed: "+(err.code||err.message));b.disabled=false;}});
   }catch(err){target.textContent="Could not load review queue: "+(err.code||err.message);}
