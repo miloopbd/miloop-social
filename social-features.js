@@ -468,7 +468,7 @@ function watchHomeStories(){
    const x=d.data()||{};
    const expiry=x.expiresAt?.toDate?.() || (x.expiresAt instanceof Date?x.expiresAt:null);
    if(!x.uid||!expiry||expiry.getTime()<=now||seen.has(x.uid))return;
-   seen.add(x.uid);items.push({uid:x.uid,displayName:x.displayName||"MILOOP member"});
+   seen.add(x.uid);items.push({uid:x.uid,storyId:d.id,storyData:x,displayName:x.displayName||"MILOOP member"});
   });
   const own=document.createElement("button");
   own.type="button";own.className="story";own.id="homeAddStory";
@@ -478,15 +478,14 @@ function watchHomeStories(){
    const b=document.createElement("button");b.type="button";b.className="story";b.dataset.storyUid=x.uid;
    const initials=x.displayName.trim().split(/\\s+/).slice(0,2).map(v=>v[0]||"").join("").toUpperCase()||"M";
    b.innerHTML='<span class="story-ring blue">'+escapeHtml(initials)+'</span><small>'+escapeHtml(x.displayName)+'</small>';
+   b.addEventListener("click",()=>{if(!currentUser){$("authOpen")?.click();return;}openStoryDetails(x.storyId,x.storyData);});
    list.append(b);
   });
  },err=>{console.error("Homepage stories listener failed:",err);});
 }
 function openStoriesFromHome(){if(currentUser)handlers.allStories?.();else $("authOpen")?.click();}
 document.addEventListener("click",e=>{
- if(e.target.closest("#homeAddStory")){e.preventDefault();openStoriesFromHome();return;}
- const storyCard=e.target.closest("[data-story-uid]");
- if(storyCard){e.preventDefault();const uid=storyCard.dataset.storyUid;getDocs(query(collection(db,"stories"),where("uid","==",uid),orderBy("createdAt","desc"),limit(5))).then(q=>{const d=q.docs.find(x=>{const exp=x.data().expiresAt?.toDate?.();return exp&&exp.getTime()>Date.now();});if(d)openStoryDetails(d.id,d.data());});}
+ if(e.target.closest("#homeAddStory")){e.preventDefault();openStoriesFromHome();}
 });
 watchHomeStories();
 onAuthStateChanged(auth,async user=>{currentUser=user;if(user){updateMyPresence(true);try{await ensurePublicProfile(user);}catch(e){console.error("Public profile sync failed:",e);}const targetProfile=new URLSearchParams(location.search).get("profile");if(targetProfile)showMemberProfile(targetProfile);}else{if(stopHomeStories){stopHomeStories();stopHomeStories=null;}}if(!user&&new URLSearchParams(location.search).has("profile")){toast("Sign in to view this profile.");}});
