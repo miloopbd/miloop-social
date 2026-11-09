@@ -405,5 +405,36 @@ document.querySelector(".mobile-nav")?.addEventListener("click",event=>{
 async function updateMyPresence(isOnline){if(!currentUser)return;try{await setDoc(doc(db,"presence",currentUser.uid),{uid:currentUser.uid,isOnline,lastSeenAt:serverTimestamp()},{merge:true});}catch(e){console.warn("Presence update failed:",e);}}
 document.addEventListener("visibilitychange",()=>{if(currentUser)updateMyPresence(document.visibilityState==="visible");});
 window.addEventListener("pagehide",()=>{if(currentUser)updateMyPresence(false);});
-onAuthStateChanged(auth,async user=>{currentUser=user;if(user){updateMyPresence(true);try{await ensurePublicProfile(user);}catch(e){console.error("Public profile sync failed:",e);}const targetProfile=new URLSearchParams(location.search).get("profile");if(targetProfile)showMemberProfile(targetProfile);}else if(new URLSearchParams(location.search).has("profile")){toast("Sign in to view this profile.");}});
+
+let stopHomeStories=null;
+function watchHomeStories(){
+ const list=$("homeStoriesList");
+ if(!list)return;
+ if(stopHomeStories){stopHomeStories();stopHomeStories=null;}
+ stopHomeStories=onSnapshot(query(collection(db,"stories"),orderBy("createdAt","desc"),limit(60)),snap=>{
+  const now=Date.now(), seen=new Set();
+  const items=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>{
+   const expiry=x.expiresAt?.toDate?.();
+   if(!x.uid||!expiry||expiry.getTime()<=now||seen.has(x.uid))return false;
+   seen.add(x.uid);return true;
+  });
+  const own=document.createElement("button");
+  own.type="button";own.className="story";own.id="homeAddStory";
+  own.innerHTML='<span class="story-ring add">＋</span><small>Your story</small>';
+  list.replaceChildren(own);
+  items.forEach(x=>{
+   const name=x.displayName||"MILOOP member";
+   const b=document.createElement("button");b.type="button";b.className="story";
+   b.dataset.storyUid=x.uid;
+   const initials=name.trim().split(/\\s+/).slice(0,2).map(v=>v[0]||"").join("").toUpperCase()||"M";
+   b.innerHTML='<span class="story-ring blue">'+escapeHtml(initials)+'</span><small>'+escapeHtml(name)+'</small>';
+   list.append(b);
+  });
+ },err=>console.warn("Stories could not load:",err));
+}
+document.addEventListener("click",e=>{
+ if(e.target.closest("#homeAddStory")){$("allStories")?.click();return;}
+ if(e.target.closest("[data-story-uid]")){$("allStories")?.click();}
+});
+onAuthStateChanged(auth,async user=>{currentUser=user;if(user){watchHomeStories();updateMyPresence(true);try{await ensurePublicProfile(user);}catch(e){console.error("Public profile sync failed:",e);}const targetProfile=new URLSearchParams(location.search).get("profile");if(targetProfile)showMemberProfile(targetProfile);}else{if(stopHomeStories){stopHomeStories();stopHomeStories=null;}}if(!user&&new URLSearchParams(location.search).has("profile")){toast("Sign in to view this profile.");}});
 
