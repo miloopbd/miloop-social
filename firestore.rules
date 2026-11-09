@@ -75,7 +75,7 @@ service cloud.firestore {
         && (!('city' in request.resource.data) || request.resource.data.city is string);
       allow update: if (
         activeMember() && request.auth.uid == userId
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verified','verifiedAt'])
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verified','verifiedAt','premiumActive','premiumTheme','premiumActivatedAt','premiumActivatedBy'])
         && request.resource.data.uid == userId
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() > 0
@@ -95,6 +95,14 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verified','verifiedAt'])
         && request.resource.data.verified is bool
         && request.resource.data.verifiedAt == request.time
+      ) || (
+        isAdmin()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['premiumActive','premiumTheme','premiumActivatedAt','premiumActivatedBy'])
+        && request.resource.data.premiumActive == true
+        && request.resource.data.premiumTheme in ['ocean','sunset','mint']
+        && request.resource.data.premiumActivatedAt == request.time
+        && request.resource.data.premiumActivatedBy == request.auth.uid
       );
       allow delete: if false;
     }
@@ -543,7 +551,21 @@ service cloud.firestore {
 
     match /posts/{postId} {
       allow read: if true;
-      allow create: if activeMember()
+      allow create: if (isAdmin()
+        && request.resource.data.keys().hasOnly(['authorUid','authorName','text','createdAt','likes','likeCount','sponsored','sponsorLabel','sponsorOrganization','sponsorRequestId'])
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorName == 'MILOOP Sponsored'
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 600
+        && request.resource.data.likes == []
+        && request.resource.data.likeCount == 0
+        && request.resource.data.sponsored == true
+        && request.resource.data.sponsorLabel == 'Sponsored'
+        && request.resource.data.sponsorOrganization is string
+        && request.resource.data.sponsorRequestId is string
+        && request.resource.data.createdAt == request.time
+      ) || (activeMember()
         && request.resource.data.keys().hasOnly(['authorUid','authorName','text','mediaUrl','mediaType','mediaPath','createdAt','likes','likeCount','background','feeling'])
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorName is string
@@ -687,10 +709,15 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
       allow read: if activeMember() && (resource.data.uid == request.auth.uid || isAdmin());
       allow update: if isAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt'])
-        && request.resource.data.status in ['approved','rejected']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt','premiumTheme','publishedPostId'])
+        && request.resource.data.status in ['approved','rejected','activated','published']
         && request.resource.data.reviewedBy == request.auth.uid
-        && request.resource.data.reviewedAt == request.time;
+        && request.resource.data.reviewedAt == request.time
+        && (
+          request.resource.data.status in ['approved','rejected']
+          || (resource.data.type == 'premium' && request.resource.data.status == 'activated' && request.resource.data.premiumTheme in ['ocean','sunset','mint'])
+          || (resource.data.type == 'sponsored' && request.resource.data.status == 'published' && request.resource.data.publishedPostId is string)
+        );
       allow delete: if false;
     }
 
