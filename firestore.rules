@@ -640,5 +640,32 @@ service cloud.firestore {
         }
       }
     }
+    // Monetization interest and sponsored campaign requests. No payment data is stored.
+    match /monetizationRequests/{requestId} {
+      allow create: if activeMember()
+        && request.resource.data.keys().hasOnly(['uid','displayName','type','organization','title','details','status','createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 60
+        && request.resource.data.type in ['premium','sponsored','creator']
+        && request.resource.data.organization is string
+        && request.resource.data.organization.size() <= 70
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 100
+        && request.resource.data.details is string
+        && request.resource.data.details.size() > 0
+        && request.resource.data.details.size() <= 500
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+      allow read: if activeMember() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt'])
+        && request.resource.data.status in ['approved','rejected']
+        && request.resource.data.reviewedBy == request.auth.uid
+        && request.resource.data.reviewedAt == request.time;
+      allow delete: if false;
+    }
+
   }
 }
