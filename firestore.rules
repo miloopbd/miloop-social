@@ -36,6 +36,17 @@ service cloud.firestore {
               && isChatMember(request.resource.data.chatId)
               && userId != request.auth.uid)
             ||
+            (isAdmin()
+              && request.resource.data.type in ['admin_message','creator_reward']
+              && request.resource.data.toUid == userId
+              && request.resource.data.title is string
+              && request.resource.data.title.size() > 0
+              && request.resource.data.title.size() <= 90
+              && request.resource.data.text is string
+              && request.resource.data.text.size() > 0
+              && request.resource.data.text.size() <= 500
+              && userId != request.auth.uid)
+            ||
             (request.resource.data.type in ['like','comment']
               && request.resource.data.postId is string
               && exists(/databases/$(database)/documents/posts/$(request.resource.data.postId))
@@ -502,6 +513,22 @@ service cloud.firestore {
       allow read: if (activeMember() && resource.data.reporterUid == request.auth.uid) || isAdmin();
       allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt']) && request.resource.data.reviewedBy == request.auth.uid && request.resource.data.status in ['reviewed','action_taken'];
       allow delete: if false;
+    }
+
+    match /posts/{postId}/views/{viewerUid} {
+      allow read: if activeMember() && (
+        isAdmin() ||
+        get(/databases/$(database)/documents/posts/$(postId)).data.authorUid == request.auth.uid
+      );
+      allow create: if activeMember()
+        && request.auth.uid == viewerUid
+        && request.resource.data.keys().hasOnly(['uid','displayName','viewedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 60
+        && request.resource.data.viewedAt == request.time;
+      allow update, delete: if false;
     }
 
     match /posts/{postId}/reactions/{memberUid} {
