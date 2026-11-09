@@ -349,20 +349,71 @@ handlers.notifications=()=>{
   },e=>{console.error(e);$("notificationsList").textContent="Could not load notifications. Publish the latest Rules.";});
 };
 
+
+function storyName(){return currentUser?.displayName||currentUser?.email?.split("@")[0]||"MILOOP member";}
+function storyDate(value){return value?.toDate?.()?.toLocaleString?.()||"Just now";}
+async function openStoryDetails(storyId,storyData){
+ const owner=storyData.uid===currentUser.uid;
+ const storyRef=doc(db,"stories",storyId);
+ try{
+  await setDoc(doc(db,"stories",storyId,"views",currentUser.uid),{
+   uid:currentUser.uid,displayName:storyName(),viewedAt:serverTimestamp()
+  },{merge:true});
+ }catch(e){console.warn("Story view tracking failed:",e);}
+ openPanel("Story",'<div class="social-item"><b>'+escapeHtml(storyData.displayName||"MILOOP member")+'</b><p style="white-space:pre-wrap">'+escapeHtml(storyData.text||"")+'</p><small>'+storyDate(storyData.createdAt)+'</small></div>'+
+  '<div style="display:flex;gap:8px;margin:10px 0"><button class="action" id="storyLike">♡ Like</button><button class="action secondary" id="storyCommentFocus">Comment</button></div>'+
+  '<div id="storyOwnerInsights" class="social-item" style="display:'+(owner?"block":"none")+'"><b>Story insights</b><p id="storyInsightCounts">Loading likes and views…</p><div id="storyLikesList"></div><div id="storyViewsList"></div></div>'+
+  '<h3 style="font-size:13px">Comments</h3><div id="storyComments">Loading…</div><form id="storyCommentForm" style="display:flex;gap:7px;margin-top:10px"><input id="storyCommentInput" maxlength="300" placeholder="Write a comment…" required style="flex:1;min-width:0"><button class="action" type="submit">Send</button></form>');
+ const likeRef=doc(db,"stories",storyId,"likes",currentUser.uid);
+ const likeSnap=await getDoc(likeRef);
+ const likeBtn=$("storyLike");
+ if(likeBtn){likeBtn.textContent=likeSnap.exists()?"♥ Liked":"♡ Like";likeBtn.onclick=async()=>{
+  try{const now=await getDoc(likeRef);if(now.exists())await deleteDoc(likeRef);else await setDoc(likeRef,{uid:currentUser.uid,displayName:storyName(),createdAt:serverTimestamp()});likeBtn.textContent=now.exists()?"♡ Like":"♥ Liked";if(owner)loadStoryInsights();}catch(e){console.error(e);toast("Like failed: "+(e.code||e.message));}
+ };}
+ $("storyCommentFocus").onclick=()=>$("storyCommentInput")?.focus();
+ async function loadComments(){
+  const target=$("storyComments");if(!target)return;
+  try{
+   const snap=await getDocs(query(collection(db,"stories",storyId,"comments"),orderBy("createdAt","asc"),limit(100)));
+   target.innerHTML=snap.empty?'<div class="social-item">No comments yet.</div>':snap.docs.map(d=>{const c=d.data();return '<div class="social-item"><b>'+escapeHtml(c.displayName||"MILOOP member")+'</b><p>'+escapeHtml(c.text||"")+'</p><small>'+storyDate(c.createdAt)+'</small></div>';}).join("");
+  }catch(e){target.textContent="Could not load comments: "+(e.code||e.message);}
+ }
+ async function loadStoryInsights(){
+  if(!owner)return;
+  try{
+   const [likes,views]=await Promise.all([
+    getDocs(query(collection(db,"stories",storyId,"likes"),limit(200))),
+    getDocs(query(collection(db,"stories",storyId,"views"),limit(300)))
+   ]);
+   const counts=$("storyInsightCounts");if(counts)counts.textContent=likes.size+" likes · "+views.size+" views";
+   const ll=$("storyLikesList"),vl=$("storyViewsList");
+   if(ll)ll.innerHTML='<b>Liked by</b>'+ (likes.empty?'<p>No likes yet.</p>':likes.docs.map(d=>'<p>'+escapeHtml(d.data().displayName||"MILOOP member")+'</p>').join(""));
+   if(vl)vl.innerHTML='<b>Viewed by</b>'+ (views.empty?'<p>No views yet.</p>':views.docs.map(d=>'<p>'+escapeHtml(d.data().displayName||"MILOOP member")+'</p>').join(""));
+  }catch(e){const c=$("storyInsightCounts");if(c)c.textContent="Insights unavailable: "+(e.code||e.message);}
+ }
+ $("storyCommentForm").onsubmit=async e=>{
+  e.preventDefault();const input=$("storyCommentInput"),text=input.value.trim();if(!text)return;
+  try{await addDoc(collection(db,"stories",storyId,"comments"),{uid:currentUser.uid,displayName:storyName(),text:text.slice(0,300),createdAt:serverTimestamp()});input.value="";await loadComments();if(owner)await loadStoryInsights();}
+  catch(err){console.error(err);toast("Comment failed: "+(err.code||err.message));}
+ };
+ await loadComments();await loadStoryInsights();
+}
 handlers.allStories=()=>{
-  openPanel("Stories",'<p>Text stories stay visible for 24 hours. Expired stories are filtered out.</p><button class="action" id="createStory">＋ Add story</button><div id="storiesList">Loading…</div>');
-  $("createStory").onclick=async()=>{
-    const text=window.prompt("Write a story (maximum 240 characters)");
-    if(!text||!text.trim())return;
-    try{await addDoc(collection(db,"stories"),{uid:currentUser.uid,displayName:currentUser.displayName||"MILOOP member",text:text.trim().slice(0,240),createdAt:serverTimestamp(),expiresAt:new Date(Date.now()+86400000)});toast("Story shared for 24 hours.");}
-    catch(e){console.error(e);toast("Could not publish story. Check Rules.");}
-  };
-  stopListener=onSnapshot(query(collection(db,"stories"),orderBy("createdAt","desc"),limit(60)),snap=>{
-    const target=$("storiesList");if(!target)return;
-    const active=snap.docs.filter(d=>d.data().expiresAt?.toDate?.()?d.data().expiresAt.toDate().getTime()>Date.now():false);
-    target.innerHTML=active.length?active.map(d=>{const s=d.data();return '<div class="social-item"><b>'+escapeHtml(s.displayName||"MILOOP member")+'</b><p>'+escapeHtml(s.text)+'</p><small>Expires in 24 hours after posting</small></div>';}).join(""):'<div class="social-item">No active stories yet.</div>';
-  },e=>{console.error(e);$("storiesList").textContent="Could not load stories. Publish the latest Rules.";});
+ openPanel("Stories",'<p>Stories stay visible for 24 hours.</p><button class="action" id="createStory">＋ Add story</button><div id="storiesList">Loading…</div>');
+ $("createStory").onclick=async()=>{
+  const text=window.prompt("Write a story (maximum 240 characters)");
+  if(!text||!text.trim())return;
+  try{await addDoc(collection(db,"stories"),{uid:currentUser.uid,displayName:storyName(),text:text.trim().slice(0,240),createdAt:serverTimestamp(),expiresAt:new Date(Date.now()+86400000)});toast("Story shared for 24 hours.");}
+  catch(e){console.error(e);toast("Could not publish story: "+(e.code||e.message));}
+ };
+ stopListener=onSnapshot(query(collection(db,"stories"),orderBy("createdAt","desc"),limit(60)),snap=>{
+  const target=$("storiesList");if(!target)return;
+  const active=snap.docs.filter(d=>{const exp=d.data().expiresAt?.toDate?.();return exp&&exp.getTime()>Date.now();});
+  target.innerHTML=active.length?active.map(d=>{const x=d.data();return '<div class="social-item"><b>'+escapeHtml(x.displayName||"MILOOP member")+'</b><p>'+escapeHtml(x.text||"")+'</p><small>Expires in 24 hours</small><button class="action" data-open-story="'+escapeHtml(d.id)+'">Open story</button></div>';}).join(""):'<div class="social-item">No active stories yet.</div>';
+  target.querySelectorAll("[data-open-story]").forEach(b=>b.onclick=()=>{const d=snap.docs.find(x=>x.id===b.dataset.openStory);if(d)openStoryDetails(d.id,d.data());});
+ },e=>{console.error(e);$("storiesList").textContent="Could not load stories: "+(e.code||e.message);});
 };
+
 
 handlers.explore=()=>{
   openPanel("Explore",'<p>Discover what is happening in your MILOOP community.</p><div class="social-item"><b>#MILOOPLaunch</b><small>Community updates</small></div><div class="social-item"><b>#CreativeMinds</b><small>Ideas and creativity</small></div><div class="social-item"><b>#DailyInspiration</b><small>Positive moments</small></div><div class="social-item"><b>#TechAndIdeas</b><small>Technology and learning</small></div>');
@@ -433,7 +484,8 @@ function watchHomeStories(){
 function openStoriesFromHome(){if(currentUser)handlers.allStories?.();else $("authOpen")?.click();}
 document.addEventListener("click",e=>{
  if(e.target.closest("#homeAddStory")){e.preventDefault();openStoriesFromHome();return;}
- if(e.target.closest("[data-story-uid]")){e.preventDefault();openStoriesFromHome();}
+ const storyCard=e.target.closest("[data-story-uid]");
+ if(storyCard){e.preventDefault();const uid=storyCard.dataset.storyUid;getDocs(query(collection(db,"stories"),where("uid","==",uid),orderBy("createdAt","desc"),limit(5))).then(q=>{const d=q.docs.find(x=>{const exp=x.data().expiresAt?.toDate?.();return exp&&exp.getTime()>Date.now();});if(d)openStoryDetails(d.id,d.data());});}
 });
 watchHomeStories();
 onAuthStateChanged(auth,async user=>{currentUser=user;if(user){updateMyPresence(true);try{await ensurePublicProfile(user);}catch(e){console.error("Public profile sync failed:",e);}const targetProfile=new URLSearchParams(location.search).get("profile");if(targetProfile)showMemberProfile(targetProfile);}else{if(stopHomeStories){stopHomeStories();stopHomeStories=null;}}if(!user&&new URLSearchParams(location.search).has("profile")){toast("Sign in to view this profile.");}});
