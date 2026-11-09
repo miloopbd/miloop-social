@@ -409,8 +409,9 @@ handlers.allStories=()=>{
  stopListener=onSnapshot(query(collection(db,"stories"),orderBy("createdAt","desc"),limit(60)),snap=>{
   const target=$("storiesList");if(!target)return;
   const active=snap.docs.filter(d=>{const exp=d.data().expiresAt?.toDate?.();return exp&&exp.getTime()>Date.now();});
-  target.innerHTML=active.length?active.map(d=>{const x=d.data();return '<div class="social-item"><b>'+escapeHtml(x.displayName||"MILOOP member")+'</b><p>'+escapeHtml(x.text||"")+'</p><small>Expires in 24 hours</small><button class="action" data-open-story="'+escapeHtml(d.id)+'">Open story</button></div>';}).join(""):'<div class="social-item">No active stories yet.</div>';
+  target.innerHTML=active.length?active.map(d=>{const x=d.data();return '<div class="social-item"><b>'+escapeHtml(x.displayName||"MILOOP member")+'</b><p>'+escapeHtml(x.text||"")+'</p><small>Expires in 24 hours</small><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="action" data-story-like="'+escapeHtml(d.id)+'">♡ Like</button><button class="action secondary" data-open-story="'+escapeHtml(d.id)+'">Comment / View</button></div></div>';}).join(""):'<div class="social-item">No active stories yet.</div>';
   target.querySelectorAll("[data-open-story]").forEach(b=>b.onclick=()=>{const d=snap.docs.find(x=>x.id===b.dataset.openStory);if(d)openStoryDetails(d.id,d.data());});
+  target.querySelectorAll("[data-story-like]").forEach(b=>b.onclick=async()=>{try{const ref=doc(db,"stories",b.dataset.storyLike,"likes",currentUser.uid),existing=await getDoc(ref);if(existing.exists()){await deleteDoc(ref);b.textContent="♡ Like";}else{await setDoc(ref,{uid:currentUser.uid,displayName:storyName(),createdAt:serverTimestamp()});b.textContent="♥ Liked";} }catch(e){console.error(e);toast("Like failed: "+(e.code||e.message));}});
  },e=>{console.error(e);$("storiesList").textContent="Could not load stories: "+(e.code||e.message);});
 };
 
