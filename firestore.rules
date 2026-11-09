@@ -110,6 +110,37 @@ service cloud.firestore {
         && request.resource.data.expiresAt <= request.time + duration.value(25, 'h');
       allow update: if false;
       allow delete: if activeMember() && resource.data.uid == request.auth.uid;
+
+      match /likes/{memberUid} {
+        allow read: if activeMember();
+        allow create: if activeMember() && request.auth.uid == memberUid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.displayName is string
+          && request.resource.data.createdAt == request.time;
+        allow update: if false;
+        allow delete: if activeMember() && request.auth.uid == memberUid;
+      }
+      match /comments/{commentId} {
+        allow read: if activeMember();
+        allow create: if activeMember()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.displayName is string
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 300
+          && request.resource.data.createdAt == request.time;
+        allow update: if false;
+        allow delete: if activeMember() && resource.data.uid == request.auth.uid;
+      }
+      match /views/{viewerUid} {
+        allow read: if activeMember()
+          && get(/databases/$(database)/documents/stories/$(storyId)).data.uid == request.auth.uid;
+        allow create, update: if activeMember() && request.auth.uid == viewerUid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.displayName is string
+          && request.resource.data.viewedAt == request.time;
+        allow delete: if false;
+      }
     }
 
     match /presence/{userId} {
