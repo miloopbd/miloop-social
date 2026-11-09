@@ -65,6 +65,33 @@ function render() {
   }).join("") : '<article class="post"><p class="post-text">No posts yet. Be the first to share something!</p></article>';
 }
 
+ 
+// Count one unique view per signed-in member and post when a post is mostly visible.
+const viewedPostIds = new Set();
+let postViewObserver = null;
+function trackVisiblePostViews(){
+  if(postViewObserver)postViewObserver.disconnect();
+  const feed=$("posts");
+  if(!feed || !currentUser || !("IntersectionObserver" in window))return;
+  postViewObserver=new IntersectionObserver(entries=>{
+    entries.forEach(async entry=>{
+      if(!entry.isIntersecting || entry.intersectionRatio<0.6)return;
+      const card=entry.target,postId=card.dataset.id,authorUid=card.dataset.authorUid;
+      if(!postId || !currentUser || viewedPostIds.has(postId) || authorUid===currentUser.uid)return;
+      viewedPostIds.add(postId);
+      const viewRef=doc(db,"posts",postId,"views",currentUser.uid);
+      try{
+        const existing=await getDoc(viewRef);
+        if(!existing.exists())await setDoc(viewRef,{uid:currentUser.uid,displayName:currentUser.displayName||"MILOOP member",viewedAt:serverTimestamp()});
+      }catch(error){viewedPostIds.delete(postId);console.warn("Post view was not recorded:",error);}
+      postViewObserver?.unobserve(card);
+    });
+  },{threshold:[0.6]});
+  feed.querySelectorAll(".post[data-id]").forEach(card=>postViewObserver.observe(card));
+}
+const postViewMutationObserver=new MutationObserver(()=>trackVisiblePostViews());
+postViewMutationObserver.observe($("posts")||document.body,{childList:true,subtree:true});
+
 // Announcements published by admins appear above the community feed for signed-in members.
 const announcementStyle=document.createElement("style");
 announcementStyle.textContent=".miloop-announcements-feed{display:grid;gap:9px;margin:0 0 14px}.miloop-announcement-card{position:relative;background:#eef4ff;border:1px solid #d9e6ff;border-left:4px solid #155eef;border-radius:13px;padding:13px 42px 13px 14px}.miloop-announcement-card small{display:block;color:#155eef;font-size:10px;font-weight:800;letter-spacing:.04em;margin-bottom:4px}.miloop-announcement-card b{display:block;color:#17233d;font-size:14px;margin-bottom:4px}.miloop-announcement-card p{margin:0;color:#52617a;font-size:12px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.miloop-announcement-card button{position:absolute;right:9px;top:8px;border:0;background:transparent;color:#71809a;font-size:20px;cursor:pointer}";
