@@ -26,7 +26,7 @@ css.textContent = `
 document.head.append(css);
 
 const features = [
- ["monetization","Monetization"],["polls","Polls"],["questions","Ask Miloop"],["streak","Daily Streak"],["badges","Achievements"],
+ ["monetization","Monetization"],["creator-stats","My Creator Stats"],["polls","Polls"],["questions","Ask Miloop"],["streak","Daily Streak"],["badges","Achievements"],
  ["saved","Bookmarks"],["events","Events"],["challenge","Challenge"],["birthday","Birthdays"],
  ["qr","QR Profile"],["leaderboard","Leaderboard"],["admin-tools","Admin Tools"]
 ];
@@ -49,6 +49,7 @@ async function render(tab){
  $("hubTabs").querySelectorAll("button").forEach(b=>b.classList.toggle("active",b.dataset.hubTab===tab));
  try{
   if(tab==="monetization") await monetization();
+  if(tab==="creator-stats") await creatorStats();
   if(tab==="polls") await polls();
   if(tab==="questions") await questions();
   if(tab==="streak") await streak();
@@ -113,6 +114,29 @@ async function monetization(){
   }catch(err){target.textContent="Could not load review queue: "+(err.code||err.message);}
  }
  await loadMyRequests();if(isAdmin)await loadAdminRequests();
+}
+
+
+async function creatorStats(){
+ setContent("My Creator Stats",'<div class="hub-card"><h3>Your creator overview</h3><p>Here you can see the performance of your posts. Points: each reaction = 1 point and each comment = 2 points. Views count unique signed-in members only.</p><div id="creatorOverall" class="hub-monet-stats"><div><b>—</b><small>Total views</small></div><div><b>—</b><small>Total points</small></div><div><b>—</b><small>Your posts</small></div></div></div><div id="creatorPostStats"><div class="hub-empty">Loading your post analytics…</div></div><p class="hub-safe">These are engagement statistics, not a promise of payment or a confirmed reward. Admins review eligibility separately.</p>');
+ const target=$("creatorPostStats");
+ try{
+  const snap=await getDocs(query(collection(db,"posts"),where("authorUid","==",user.uid),limit(100)));
+  const rows=[];let totalViews=0,totalPoints=0;
+  for(const postDoc of snap.docs){
+   const [views,reactions,comments]=await Promise.all([
+    getDocs(collection(db,"posts",postDoc.id,"views")),
+    getDocs(collection(db,"posts",postDoc.id,"reactions")),
+    getDocs(collection(db,"posts",postDoc.id,"comments"))
+   ]);
+   const points=reactions.size+comments.size*2;
+   totalViews+=views.size;totalPoints+=points;
+   rows.push({id:postDoc.id,text:postDoc.data().text||"Post",createdAt:postDoc.data().createdAt,views:views.size,reactions:reactions.size,comments:comments.size,points});
+  }
+  $("creatorOverall").innerHTML='<div><b>'+totalViews+'</b><small>Total unique views</small></div><div><b>'+totalPoints+'</b><small>Total points</small></div><div><b>'+rows.length+'</b><small>Your posts</small></div>';
+  rows.sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
+  target.innerHTML=rows.length?rows.map((p,i)=>'<article class="hub-card"><h3>Post '+(i+1)+'</h3><p>'+esc(p.text.slice(0,180))+(p.text.length>180?"…":"")+'</p><div class="hub-monet-stats"><div><b>'+p.views+'</b><small>Unique views</small></div><div><b>'+p.points+'</b><small>Total points</small></div><div><b>'+p.reactions+'</b><small>Reactions</small></div></div><p class="hub-muted">Comments: '+p.comments+' · '+esc(p.createdAt?.toDate?.().toLocaleDateString?.()||"Date unavailable")+'</p></article>').join(""):'<div class="hub-empty">You have not published any posts yet.</div>';
+ }catch(err){target.innerHTML='<div class="hub-card">Could not load your analytics: '+esc(err.code||err.message||"Unknown error")+'. Please check Firestore Rules.</div>';}
 }
 
 async function adminTools(){
