@@ -28,7 +28,7 @@ document.head.append(css);
 const features = [
  ["monetization","Monetization"],["polls","Polls"],["questions","Ask Miloop"],["streak","Daily Streak"],["badges","Achievements"],
  ["saved","Bookmarks"],["events","Events"],["challenge","Challenge"],["birthday","Birthdays"],
- ["qr","QR Profile"],["leaderboard","Leaderboard"]
+ ["qr","QR Profile"],["leaderboard","Leaderboard"],["admin-tools","Admin Tools"]
 ];
 function toast(msg){const el=$("toast");if(el){el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600);}}
 function open(tab="polls"){
@@ -59,6 +59,7 @@ async function render(tab){
   if(tab==="birthday") await birthday();
   if(tab==="qr") await qr();
   if(tab==="leaderboard") await leaderboard();
+  if(tab==="admin-tools") await adminTools();
  }catch(e){console.error("Community Hub:",e);$("hubContent").innerHTML='<div class="hub-card">Could not load this feature: '+esc(e.code||e.message||"Unknown error")+'. Check the latest Firestore Rules.</div>';}
 }
 async function monetization(){
@@ -112,6 +113,44 @@ async function monetization(){
   }catch(err){target.textContent="Could not load review queue: "+(err.code||err.message);}
  }
  await loadMyRequests();if(isAdmin)await loadAdminRequests();
+}
+
+async function adminTools(){
+ const adminSnap=await getDoc(doc(db,"admins",user.uid));
+ const isAdmin=adminSnap.exists()&&adminSnap.data().enabled===true&&adminSnap.data().role==="admin";
+ if(!isAdmin){setContent("Admin Tools",'<div class="hub-card"><h3>Restricted area</h3><p>These tools are available to authorized MILOOP admins only.</p></div>');return;}
+ setContent("Admin Tools",'<div class="hub-card"><h3>Send a direct notification</h3><p>Find a member by name, then send a private message to their Notifications.</p><form id="adminUserSearch" class="hub-form"><input id="adminSearchName" maxlength="60" placeholder="Search member name" required><button class="hub-btn">Search members</button></form><div id="adminSearchResults"></div><div id="adminMessageForm"></div></div><div class="hub-card"><h3>Creator Reward Review</h3><p>Initial eligibility: at least 500 unique signed-in views and 500 engagement points on one post. Like/reaction = 1 point; comment = 2 points. Admin reviews the figures before notifying the creator. No payment details are collected here.</p><button class="hub-btn" id="loadRewardReview">Check eligible posts</button><div id="rewardReviewList"></div></div>');
+ $("adminUserSearch").onsubmit=async e=>{
+  e.preventDefault();const term=$("adminSearchName").value.trim().toLowerCase(),target=$("adminSearchResults");
+  target.textContent="Searching…";
+  try{
+   const snap=await getDocs(query(collection(db,"publicProfiles"),limit(150)));
+   const matches=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(x=>(x.displayName||x.name||"").toLowerCase().includes(term)).slice(0,15);
+   target.innerHTML=matches.length?matches.map(x=>'<div class="hub-row"><div><b>'+esc(x.displayName||x.name||"MILOOP member")+'</b><small>'+esc(x.uid)+'</small></div><button class="hub-btn alt" data-admin-target="'+esc(x.uid)+'" data-admin-name="'+esc(x.displayName||x.name||"MILOOP member")+'">Select</button></div>').join(""):'<p class="hub-muted">No matching members found.</p>';
+   target.querySelectorAll("[data-admin-target]").forEach(b=>b.onclick=()=>{
+    $("adminMessageForm").innerHTML='<h3>Message to '+esc(b.dataset.adminName)+'</h3><form id="adminSendMessage" class="hub-form"><input id="adminMsgTitle" maxlength="90" placeholder="Notification title" required><textarea id="adminMsgText" maxlength="500" placeholder="Write your message…" required></textarea><button class="hub-btn">Send notification</button></form>';
+    $("adminSendMessage").onsubmit=async ev=>{ev.preventDefault();const btn=ev.currentTarget.querySelector("button");btn.disabled=true;try{await addDoc(collection(db,"users",b.dataset.adminTarget,"notifications"),{type:"admin_message",fromUid:user.uid,toUid:b.dataset.adminTarget,title:$("adminMsgTitle").value.trim(),text:$("adminMsgText").value.trim(),createdAt:serverTimestamp(),read:false});toast("Notification sent.");ev.currentTarget.reset();}catch(err){toast("Could not send: "+(err.code||err.message));}finally{btn.disabled=false;}};
+   });
+  }catch(err){target.textContent="Search failed: "+(err.code||err.message);}
+ };
+ $("loadRewardReview").onclick=async()=>{
+  const target=$("rewardReviewList");target.textContent="Checking recent posts…";
+  try{
+   const snap=await getDocs(query(collection(db,"posts"),orderBy("createdAt","desc"),limit(60))),rows=[];
+   for(const postDoc of snap.docs){
+    const p=postDoc.data();
+    const [views,reactions,comments]=await Promise.all([
+     getDocs(collection(db,"posts",postDoc.id,"views")),
+     getDocs(collection(db,"posts",postDoc.id,"reactions")),
+     getDocs(collection(db,"posts",postDoc.id,"comments"))
+    ]);
+    const points=reactions.size+comments.size*2;
+    if(views.size>=500&&points>=500)rows.push({id:postDoc.id,uid:p.authorUid,name:p.authorName||"MILOOP creator",views:views.size,points});
+   }
+   target.innerHTML=rows.length?rows.map(x=>'<div class="hub-row"><div><b>'+esc(x.name)+'</b><small>'+x.views+' unique views · '+x.points+' points</small></div><button class="hub-btn" data-reward-notify="'+esc(x.id)+'" data-reward-uid="'+esc(x.uid)+'" data-reward-name="'+esc(x.name)+'">Notify creator</button></div>').join(""):'<p class="hub-muted">No posts currently meet both thresholds. Views count signed-in members only.</p>';
+   target.querySelectorAll("[data-reward-notify]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{await addDoc(collection(db,"users",b.dataset.rewardUid,"notifications"),{type:"creator_reward",fromUid:user.uid,toUid:b.dataset.rewardUid,postId:b.dataset.rewardNotify,title:"Creator milestone reached",text:"Your post has reached at least 500 unique views and 500 engagement points (likes/reactions + comments). This is an initial eligibility notice, not a confirmed reward. The MILOOP admin team will review the activity before any decision. Please do not send passwords, PINs or OTPs.",createdAt:serverTimestamp(),read:false});toast("Eligibility notification sent.");b.textContent="Notified";}catch(err){toast("Could not notify: "+(err.code||err.message));b.disabled=false;}});
+  }catch(err){target.textContent="Could not check posts: "+(err.code||err.message);}
+ };
 }
 
 async function polls(){
