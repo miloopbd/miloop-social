@@ -409,32 +409,32 @@ window.addEventListener("pagehide",()=>{if(currentUser)updateMyPresence(false);}
 let stopHomeStories=null;
 function watchHomeStories(){
  const list=$("homeStoriesList");
- if(!list)return;
- if(stopHomeStories){stopHomeStories();stopHomeStories=null;}
- stopHomeStories=onSnapshot(query(collection(db,"stories"),orderBy("createdAt","desc"),limit(60)),snap=>{
-  const now=Date.now(), seen=new Set();
-  const items=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>{
-   const expiry=x.expiresAt?.toDate?.();
-   if(!x.uid||!expiry||expiry.getTime()<=now||seen.has(x.uid))return false;
-   seen.add(x.uid);return true;
+ if(!list||stopHomeStories)return;
+ stopHomeStories=onSnapshot(query(collection(db,"stories"),orderBy("createdAt","desc"),limit(100)),snap=>{
+  const now=Date.now(),seen=new Set(),items=[];
+  snap.docs.forEach(d=>{
+   const x=d.data()||{};
+   const expiry=x.expiresAt?.toDate?.() || (x.expiresAt instanceof Date?x.expiresAt:null);
+   if(!x.uid||!expiry||expiry.getTime()<=now||seen.has(x.uid))return;
+   seen.add(x.uid);items.push({uid:x.uid,displayName:x.displayName||"MILOOP member"});
   });
   const own=document.createElement("button");
   own.type="button";own.className="story";own.id="homeAddStory";
   own.innerHTML='<span class="story-ring add">＋</span><small>Your story</small>';
   list.replaceChildren(own);
   items.forEach(x=>{
-   const name=x.displayName||"MILOOP member";
-   const b=document.createElement("button");b.type="button";b.className="story";
-   b.dataset.storyUid=x.uid;
-   const initials=name.trim().split(/\\s+/).slice(0,2).map(v=>v[0]||"").join("").toUpperCase()||"M";
-   b.innerHTML='<span class="story-ring blue">'+escapeHtml(initials)+'</span><small>'+escapeHtml(name)+'</small>';
+   const b=document.createElement("button");b.type="button";b.className="story";b.dataset.storyUid=x.uid;
+   const initials=x.displayName.trim().split(/\\s+/).slice(0,2).map(v=>v[0]||"").join("").toUpperCase()||"M";
+   b.innerHTML='<span class="story-ring blue">'+escapeHtml(initials)+'</span><small>'+escapeHtml(x.displayName)+'</small>';
    list.append(b);
   });
- },err=>console.warn("Stories could not load:",err));
+ },err=>{console.error("Homepage stories listener failed:",err);});
 }
+function openStoriesFromHome(){if(currentUser)handlers.allStories?.();else $("authOpen")?.click();}
 document.addEventListener("click",e=>{
- if(e.target.closest("#homeAddStory")){$("allStories")?.click();return;}
- if(e.target.closest("[data-story-uid]")){$("allStories")?.click();}
+ if(e.target.closest("#homeAddStory")){e.preventDefault();openStoriesFromHome();return;}
+ if(e.target.closest("[data-story-uid]")){e.preventDefault();openStoriesFromHome();}
 });
-onAuthStateChanged(auth,async user=>{currentUser=user;if(user){watchHomeStories();updateMyPresence(true);try{await ensurePublicProfile(user);}catch(e){console.error("Public profile sync failed:",e);}const targetProfile=new URLSearchParams(location.search).get("profile");if(targetProfile)showMemberProfile(targetProfile);}else{if(stopHomeStories){stopHomeStories();stopHomeStories=null;}}if(!user&&new URLSearchParams(location.search).has("profile")){toast("Sign in to view this profile.");}});
+watchHomeStories();
+onAuthStateChanged(auth,async user=>{currentUser=user;if(user){updateMyPresence(true);try{await ensurePublicProfile(user);}catch(e){console.error("Public profile sync failed:",e);}const targetProfile=new URLSearchParams(location.search).get("profile");if(targetProfile)showMemberProfile(targetProfile);}else{if(stopHomeStories){stopHomeStories();stopHomeStories=null;}}if(!user&&new URLSearchParams(location.search).has("profile")){toast("Sign in to view this profile.");}});
 
