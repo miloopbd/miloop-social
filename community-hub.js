@@ -20,12 +20,13 @@ css.textContent = `
 #communityHub.open{display:block}.hub-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.hub-head h2{font-size:22px;margin:4px 0}.hub-kicker{font-size:9px;font-weight:800;letter-spacing:1.5px;color:#155eef}.hub-head>button{border:0;border-radius:50%;width:34px;height:34px;font-size:22px;background:#f0f4fa;color:#52627d}
 .hub-tabs{display:flex;gap:7px;overflow:auto;padding:3px 0 13px}.hub-tabs button{white-space:nowrap;border:1px solid #e1e8f2;background:#f7f9fc;color:#52627d;border-radius:20px;padding:8px 12px;font:700 10px 'DM Sans';cursor:pointer}.hub-tabs button.active{background:#155eef;color:#fff;border-color:#155eef}
 .hub-card{border:1px solid #e7edf5;border-radius:13px;padding:14px;margin:9px 0;background:#fff}.hub-card h3{font-size:14px;margin:0 0 8px}.hub-card p{font-size:11px;line-height:1.6;color:#61708a;white-space:pre-wrap}.hub-muted{font-size:10px;color:#8b97aa}.hub-form input,.hub-form textarea,.hub-form select{box-sizing:border-box;width:100%;padding:11px;border:1px solid #dfe7f2;border-radius:9px;margin:6px 0;font:12px 'DM Sans';background:#fff;color:#17233d}.hub-form textarea{min-height:75px;resize:vertical}.hub-btn{border:0;border-radius:9px;background:#155eef;color:#fff;padding:10px 14px;font:700 11px 'DM Sans';cursor:pointer;margin:5px 5px 5px 0}.hub-btn.alt{background:#edf3ff;color:#155eef}.hub-btn:disabled{opacity:.55;cursor:wait}.hub-option{display:flex;gap:8px;align-items:center;padding:8px 0;font-size:11px}.hub-option input{width:auto;margin:0}.hub-empty{padding:18px;text-align:center;color:#8995a8;font-size:11px}.hub-row{display:flex;gap:8px;align-items:center;justify-content:space-between;border-top:1px solid #eef1f6;padding:10px 0;font-size:11px}.hub-row>div{min-width:0;flex:1}.hub-row small{display:block;color:#8995a8;margin-top:4px}.hub-badge{display:inline-block;border-radius:20px;background:#eef4ff;color:#155eef;padding:6px 9px;margin:3px;font-size:10px;font-weight:700}.hub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.hub-qr{display:block;width:210px;height:210px;max-width:100%;margin:12px auto}.hub-safe{font-size:10px;color:#76849a;line-height:1.6;background:#f6f8fc;border-radius:9px;padding:10px}
+.hub-monet-hero{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px;border-radius:16px;background:linear-gradient(125deg,#102b62,#155eef 65%,#4d8cff);color:#fff;margin:8px 0 14px;overflow:hidden}.hub-monet-hero h3{font-size:19px;margin:9px 0 6px}.hub-monet-hero p{color:#dce8ff;font-size:11px;line-height:1.6;margin:0;max-width:380px}.hub-monet-tag{font-size:9px;letter-spacing:1.2px;font-weight:800;color:#c6dcff}.hub-monet-mark{width:64px;height:64px;flex:none;border:1px solid #ffffff65;border-radius:20px;display:grid;place-items:center;font-size:34px;font-weight:800;background:#ffffff18}.hub-monet-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.hub-monet-card{border:1px solid #e6ecf5;border-radius:13px;padding:14px;background:#fff;min-width:0}.hub-monet-card h3{font-size:13px;margin:8px 0}.hub-monet-card p{min-height:65px}.hub-monet-icon{width:34px;height:34px;border-radius:11px;background:#edf3ff;color:#155eef;display:grid;place-items:center;font-size:18px}.hub-monet-status{display:inline-block;background:#f0f4fb;color:#52627d;border-radius:20px;padding:5px 8px;font-size:9px;font-weight:700;margin:3px 0 8px}.hub-monet-stats,.hub-monet-admin-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}.hub-monet-stats>div,.hub-monet-admin-grid>div{background:#f6f8fc;border-radius:10px;padding:12px;display:grid;gap:4px}.hub-monet-stats b{font-size:22px;color:#155eef}.hub-monet-stats small,.hub-monet-admin-grid small{font-size:9px;color:#8793a7}.hub-monet-head{display:flex;justify-content:space-between;gap:10px;align-items:start}.hub-monet-admin-grid b{font-size:10px}.hub-monet-admin-grid strong{font-size:17px;color:#155eef}.hub-monet-form{border-top:1px solid #edf1f7;margin-top:14px;padding-top:13px}.hub-monet-preview{border:1px solid #dce7ff;background:#f7faff;border-radius:12px;padding:14px;margin-top:12px}.hub-monet-preview h3{font-size:14px;margin:9px 0 5px}.hub-monet-preview b{font-size:10px;color:#52627d}.hub-monet-preview small{font-size:9px;color:#8793a7}@media(max-width:600px){.hub-monet-grid{grid-template-columns:1fr}.hub-monet-card p{min-height:0}.hub-monet-hero h3{font-size:17px}.hub-monet-mark{width:48px;height:48px}.hub-monet-admin-grid,.hub-monet-stats{grid-template-columns:1fr 1fr}.hub-monet-head{display:block}}
 @media(max-width:600px){#communityHub{inset:8px;max-height:calc(100dvh - 16px);padding:14px;border-radius:15px}.hub-head h2{font-size:19px}.hub-grid{grid-template-columns:1fr}}
 `;
 document.head.append(css);
 
 const features = [
- ["polls","Polls"],["questions","Ask Miloop"],["streak","Daily Streak"],["badges","Achievements"],
+ ["monetization","Monetization"],["polls","Polls"],["questions","Ask Miloop"],["streak","Daily Streak"],["badges","Achievements"],
  ["saved","Bookmarks"],["events","Events"],["challenge","Challenge"],["birthday","Birthdays"],
  ["qr","QR Profile"],["leaderboard","Leaderboard"]
 ];
@@ -47,6 +48,7 @@ async function docs(path,sortField="createdAt",max=30){
 async function render(tab){
  $("hubTabs").querySelectorAll("button").forEach(b=>b.classList.toggle("active",b.dataset.hubTab===tab));
  try{
+  if(tab==="monetization") await monetization();
   if(tab==="polls") await polls();
   if(tab==="questions") await questions();
   if(tab==="streak") await streak();
@@ -58,6 +60,34 @@ async function render(tab){
   if(tab==="qr") await qr();
   if(tab==="leaderboard") await leaderboard();
  }catch(e){console.error("Community Hub:",e);$("hubContent").innerHTML='<div class="hub-card">Could not load this feature: '+esc(e.code||e.message||"Unknown error")+'. Check the latest Firestore Rules.</div>';}
+}
+async function monetization(){
+ setContent("MILOOP Monetization",`
+ <div class="hub-monet-hero"><div><span class="hub-monet-tag">CREATOR ECONOMY · PREVIEW</span><h3>Build value with your community.</h3><p>Explore future earning tools for creators and community partners.</p></div><div class="hub-monet-mark">M</div></div>
+ <div class="hub-monet-grid">
+  <article class="hub-monet-card"><span class="hub-monet-icon">✦</span><h3>MILOOP Premium</h3><p>Optional profile themes, exclusive badge, custom profile accents and future premium features.</p><span class="hub-monet-status">Planned feature</span><button class="hub-btn" type="button" data-monet-action="premium">Explore Premium</button></article>
+  <article class="hub-monet-card"><span class="hub-monet-icon">▣</span><h3>Sponsored Posts</h3><p>Clearly labelled partner posts may help brands reach the community. Sponsored content will be reviewed before display.</p><span class="hub-monet-status">Admin-managed · Preview</span><button class="hub-btn" type="button" data-monet-action="sponsor">Create ad preview</button></article>
+  <article class="hub-monet-card"><span class="hub-monet-icon">♡</span><h3>Support Creator</h3><p>A future way for community members to appreciate creators. No payment is collected in this preview.</p><span class="hub-monet-status">Coming later</span><button class="hub-btn" type="button" data-monet-action="support">See creator support</button></article>
+ </div>
+ <div id="monetActionPanel" class="hub-card"><h3>Monetization overview</h3><p>All three modules are included in this preview. Payment collection, subscriptions and creator payouts are not active.</p><div class="hub-monet-stats"><div><b>3</b><small>Modules planned</small></div><div><b>0</b><small>Live payments</small></div><div><b>0</b><small>Active campaigns</small></div></div></div>
+ <div class="hub-card"><div class="hub-monet-head"><div><h3>Admin Monetization Desk</h3><p>Manage future premium access and sponsored content proposals.</p></div><span class="hub-monet-status">Demo dashboard</span></div>
+  <div class="hub-monet-admin-grid"><div><b>Premium members</b><strong>0</strong><small>Demo data only</small></div><div><b>Campaigns</b><strong>0</strong><small>Demo data only</small></div><div><b>Creator support</b><strong>Not active</strong><small>Payment feature off</small></div></div>
+  <form id="sponsorPreviewForm" class="hub-form hub-monet-form"><h3>Sponsored post preview</h3><input id="sponsorBrand" maxlength="60" placeholder="Partner / brand name" required><input id="sponsorTitle" maxlength="100" placeholder="Campaign headline" required><textarea id="sponsorDescription" maxlength="400" placeholder="Write a short, honest description" required></textarea><button class="hub-btn" type="submit">Preview sponsored post</button></form>
+  <div id="sponsorPreview" aria-live="polite"></div>
+ </div>
+ <p class="hub-safe">Safety & transparency: Sponsored posts must be clearly labelled and reviewed. Any real subscription, advertising agreement or money transfer must be arranged by a responsible adult and comply with applicable laws and provider rules. MILOOP does not collect payment details here.</p>`);
+ const panel=$("monetActionPanel");
+ document.querySelectorAll("[data-monet-action]").forEach(b=>b.onclick=()=>{
+  const type=b.dataset.monetAction;
+  if(type==="premium") panel.innerHTML='<h3>✦ MILOOP Premium</h3><p>Planned benefits: Premium profile badge, profile themes, extra profile customization and optional community perks.</p><span class="hub-monet-status">Preview only · No subscription available</span>';
+  if(type==="sponsor") $("sponsorBrand")?.focus();
+  if(type==="support") panel.innerHTML='<h3>♡ Support Creator</h3><p>Creator appreciation is planned for a later release. No money, card details or payout information is requested or processed.</p><span class="hub-monet-status">Not active</span>';
+ });
+ $("sponsorPreviewForm").onsubmit=e=>{
+  e.preventDefault();
+  const brand=esc($("sponsorBrand").value.trim()),title=esc($("sponsorTitle").value.trim()),desc=esc($("sponsorDescription").value.trim());
+  $("sponsorPreview").innerHTML='<article class="hub-monet-preview"><span class="hub-monet-status">SPONSORED · PREVIEW ONLY</span><h3>'+title+'</h3><b>'+brand+'</b><p>'+desc+'</p><small>This is a local preview. It has not been published or sent to anyone.</small></article>';
+ };
 }
 async function polls(){
  setContent("Miloop Polls",'<div class="hub-card"><h3>Create a poll</h3><form id="pollForm" class="hub-form"><input id="pollTitle" maxlength="120" placeholder="Ask your community…" required><input class="pollChoice" maxlength="70" placeholder="Option 1" required><input class="pollChoice" maxlength="70" placeholder="Option 2" required><input class="pollChoice" maxlength="70" placeholder="Option 3 (optional)"><input class="pollChoice" maxlength="70" placeholder="Option 4 (optional)"><button class="hub-btn">Publish poll</button></form></div><div id="pollList">Loading polls…</div>');
