@@ -170,7 +170,7 @@ onAuthStateChanged(auth,u=>{user=u;});
 window.MILOOPCommunityHub={open,close};
 
 const sideNav=document.querySelector(".left nav");
-if(sideNav){const a=document.createElement("a");a.href="#community";a.textContent="✦ ";const span=document.createElement("span");span.textContent="Community Hub";a.append(span);a.addEventListener("click",e=>{e.preventDefault();open("polls");});sideNav.append(a);}
+if(sideNav){const a=document.createElement("a");a.href="#community";a.textContent="✦ ";const span=document.createElement("span");span.textContent="Community Hub";a.append(span);a.addEventListener("click",e=>{e.preventDefault();open("monetization");});sideNav.append(a);}
 function addBookmarkControls(){
  document.querySelectorAll("#posts .post").forEach(card=>{
   const actions=card.querySelector(".post-actions");
