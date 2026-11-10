@@ -83,9 +83,16 @@ function updateAccountUI(user) {
   signOutButton.hidden = !user;
   forgotButton.hidden = !!user || mode === "signup";
   $("profile").textContent = user ? (user.displayName || user.email || "U").trim().charAt(0).toUpperCase() : "I";
-  const displayName = user?.displayName || user?.email?.split("@")[0] || "Imran";
-  document.querySelectorAll(".user-mini b").forEach(el => el.textContent = displayName);
+  const displayName = user?.displayName?.trim() || user?.email?.split("@")[0] || "MILOOP member";
+  document.querySelectorAll(".user-mini b").forEach(el => el.textContent = user ? displayName : "Guest");
   document.querySelectorAll(".compose-prompt").forEach(el => el.textContent = user ? `What’s on your mind, ${displayName}?` : "Sign in to share with your loop");
+  const postDialogUser = document.querySelector("#postDialog .dialog-user");
+  if (postDialogUser) {
+    const name = postDialogUser.querySelector("b");
+    const avatar = postDialogUser.querySelector(".avatar");
+    if (name) name.textContent = user ? displayName : "Guest";
+    if (avatar) avatar.textContent = user ? displayName.charAt(0).toUpperCase() : "G";
+  }
   const welcome = document.querySelector(".welcome h1");
   if (welcome) welcome.innerHTML = user ? `Welcome back, ${escapeText(displayName)} <span>✦</span>` : 'Welcome to MILOOP <span>✦</span>';
 }
