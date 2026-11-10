@@ -1,6 +1,6 @@
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { auth, db } from "./firebase.js";
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
 const dialog = $("authDialog");
@@ -20,6 +20,16 @@ const openButton = $("authOpen");
 let mode = "signin";
 let currentUser = null;
 
+// Add password recovery without changing the existing login form markup.
+const forgotButton = document.createElement("button");
+forgotButton.type = "button";
+forgotButton.id = "forgotPassword";
+forgotButton.className = "link-btn";
+forgotButton.textContent = "Forgot password?";
+forgotButton.style.display = "block";
+forgotButton.style.margin = "10px 0";
+passwordInput.closest(".auth-label")?.insertAdjacentElement("afterend", forgotButton);
+
 async function syncUserProfile(user) {
   if (!db || !user) return;
   const profileRef = doc(db, "users", user.uid);
@@ -34,7 +44,10 @@ async function syncUserProfile(user) {
   await setDoc(profileRef, profileData, { merge: true });
 }
 
-function showError(message) { errorBox.textContent = message; }
+function showError(message, success = false) {
+  errorBox.textContent = message;
+  errorBox.style.color = success ? "#087443" : "";
+}
 function setMode(next) {
   mode = next;
   const signup = mode === "signup";
@@ -43,6 +56,7 @@ function setMode(next) {
   nameLabel.hidden = !signup;
   nameInput.required = signup;
   passwordInput.autocomplete = signup ? "new-password" : "current-password";
+  forgotButton.hidden = signup || !!currentUser;
   submit.textContent = signup ? "Create account" : "Sign in";
   switchText.textContent = signup ? "Already have an account?" : "New to MILOOP?";
   switchButton.textContent = signup ? "Sign in" : "Create account";
@@ -67,6 +81,7 @@ function updateAccountUI(user) {
   currentUser = user;
   openButton.textContent = user ? "Account" : "Sign in";
   signOutButton.hidden = !user;
+  forgotButton.hidden = !!user || mode === "signup";
   $("profile").textContent = user ? (user.displayName || user.email || "U").trim().charAt(0).toUpperCase() : "I";
   const displayName = user?.displayName || user?.email?.split("@")[0] || "Imran";
   document.querySelectorAll(".user-mini b").forEach(el => el.textContent = displayName);
@@ -81,18 +96,20 @@ function configReady() {
   return firebaseConfig && firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith("PASTE_") && firebaseConfig.projectId && !firebaseConfig.projectId.startsWith("PASTE_");
 }
 openButton.addEventListener("click", () => {
-  setMode(currentUser ? "signin" : "signin");
+  setMode("signin");
   if (currentUser) {
     title.textContent = "Your MILOOP account";
     intro.textContent = currentUser.email || "You’re signed in.";
     nameLabel.hidden = true;
     emailInput.value = currentUser.email || "";
     passwordInput.hidden = true;
+    forgotButton.hidden = true;
     submit.hidden = true;
     switchText.textContent = "Signed in as";
     switchButton.hidden = true;
   } else {
     passwordInput.hidden = false;
+    forgotButton.hidden = false;
     submit.hidden = false;
     switchButton.hidden = false;
   }
@@ -105,14 +122,44 @@ switchButton.addEventListener("click", () => {
   switchButton.hidden = false;
   setMode(mode === "signin" ? "signup" : "signin");
 });
+
+forgotButton.addEventListener("click", async () => {
+  const email = emailInput.value.trim().toLowerCase();
+  if (!email) {
+    showError("Enter your account email address first.");
+    emailInput.focus();
+    return;
+  }
+  if (!emailInput.checkValidity()) {
+    showError("Please enter a valid email address.");
+    emailInput.focus();
+    return;
+  }
+  forgotButton.disabled = true;
+  forgotButton.textContent = "Sending reset link…";
+  showError("");
+  try {
+    await sendPasswordResetEmail(auth, email);
+    showError("If an account exists for this email, a password reset link has been sent. Check your inbox and spam folder.", true);
+  } catch (error) {
+    if (error?.code === "auth/user-not-found") {
+      showError("If an account exists for this email, a password reset link has been sent. Check your inbox and spam folder.", true);
+    } else {
+      showError(friendlyError(error));
+    }
+  } finally {
+    forgotButton.disabled = false;
+    forgotButton.textContent = "Forgot password?";
+  }
+});
+
 form.addEventListener("submit", async event => {
   event.preventDefault();
-  
   submit.disabled = true;
   submit.textContent = mode === "signup" ? "Creating account…" : "Signing in…";
   showError("");
   try {
-    const email = emailInput.value.trim();
+    const email = emailInput.value.trim().toLowerCase();
     const password = passwordInput.value;
     if (mode === "signup") {
       const name = nameInput.value.trim();
@@ -134,7 +181,6 @@ form.addEventListener("submit", async event => {
   }
 });
 signOutButton.addEventListener("click", async () => {
-  
   try {
     await signOut(auth);
     dialog.close();
