@@ -77,24 +77,46 @@ function friendlyError(error) {
   };
   return messages[code] || "Authentication failed. Check your Firebase setup and try again.";
 }
-function updateAccountUI(user) {
+async function updateAccountUI(user) {
   currentUser = user;
   openButton.textContent = user ? "Account" : "Sign in";
   signOutButton.hidden = !user;
   forgotButton.hidden = !!user || mode === "signup";
-  $("profile").textContent = user ? (user.displayName || user.email || "U").trim().charAt(0).toUpperCase() : "I";
-  const displayName = user?.displayName?.trim() || user?.email?.split("@")[0] || "MILOOP member";
-  document.querySelectorAll(".user-mini b").forEach(el => el.textContent = user ? displayName : "Guest");
-  document.querySelectorAll(".compose-prompt").forEach(el => el.textContent = user ? `What’s on your mind, ${displayName}?` : "Sign in to share with your loop");
+
+  let displayName = "Guest";
+  if (user) {
+    displayName = user.displayName?.trim() || user.email?.split("@")[0] || "MILOOP member";
+    // The editable MILOOP profile name is stored in publicProfiles.
+    try {
+      const profileSnap = await getDoc(doc(db, "publicProfiles", user.uid));
+      const profileName = profileSnap.exists() ? profileSnap.data()?.displayName?.trim() : "";
+      if (profileName) displayName = profileName;
+    } catch (error) {
+      console.warn("Could not load public profile name:", error);
+    }
+    // Ignore a slow profile response if another account has since signed in.
+    if (currentUser?.uid !== user.uid) return;
+  }
+
+  const initial = user ? displayName.charAt(0).toUpperCase() : "G";
+  $("profile").textContent = initial;
+  document.querySelectorAll(".user-mini b").forEach(el => el.textContent = displayName);
+  document.querySelectorAll(".compose-prompt").forEach(el => {
+    el.textContent = user ? `What’s on your mind, ${displayName}?` : "Sign in to share with your loop";
+  });
+
   const postDialogUser = document.querySelector("#postDialog .dialog-user");
   if (postDialogUser) {
     const name = postDialogUser.querySelector("b");
     const avatar = postDialogUser.querySelector(".avatar");
-    if (name) name.textContent = user ? displayName : "Guest";
-    if (avatar) avatar.textContent = user ? displayName.charAt(0).toUpperCase() : "G";
+    if (name) name.textContent = displayName;
+    if (avatar) avatar.textContent = initial;
   }
+
   const welcome = document.querySelector(".welcome h1");
-  if (welcome) welcome.innerHTML = user ? `Welcome back, ${escapeText(displayName)} <span>✦</span>` : 'Welcome to MILOOP <span>✦</span>';
+  if (welcome) welcome.innerHTML = user
+    ? `Welcome back, ${escapeText(displayName)} <span>✦</span>`
+    : 'Welcome to MILOOP <span>✦</span>';
 }
 function escapeText(value) {
   return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
