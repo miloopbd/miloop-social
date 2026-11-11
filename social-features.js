@@ -40,8 +40,29 @@ styles.textContent = `
 .chat-presence{display:block;margin-top:4px;font-size:10px;color:#8491a6}.chat-presence.online{color:#0b9b68}.typing-status{min-height:17px;font-size:10px;color:#155eef;padding:0 4px}.reply-preview{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#eef4ff;border-left:3px solid #155eef;padding:8px 10px;border-radius:8px;margin:7px 0}.reply-preview[hidden]{display:none}.reply-preview span{min-width:0}.reply-preview b,.reply-preview small{display:block;font-size:10px;color:#40516e}.reply-preview small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;margin-top:3px}.reply-preview button{border:0;background:transparent;font-size:18px;color:#75829a}.reply-quote{border-left:2px solid #155eef;background:#f1f5fd;padding:6px 8px;border-radius:5px;margin-bottom:6px}.reply-quote b,.reply-quote span{display:block;font-size:9px;color:#53617a}.reply-quote span{margin-top:3px;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:700px){.social-panel{top:68px;right:8px;width:calc(100vw - 16px);max-height:82vh;padding:14px}.social-chat-log{height:42vh}}
 `;
-styles.textContent += ".profile-upload-field{border:1px solid #e2e8f2;border-radius:10px;padding:10px;margin:10px 0}.profile-upload-field>b{display:block;font-size:12px;color:#243653;margin-bottom:5px}.profile-upload-field small{display:block;font-size:10px;color:#7d899d;overflow-wrap:anywhere}";
+styles.textContent += ".profile-image-view{display:block;width:100%;height:100%;padding:0;border:0;background:transparent;cursor:zoom-in}.profile-image-view img{display:block}.avatar-image-view{border-radius:50%;overflow:hidden}.profile-image-lightbox[hidden]{display:none!important}.profile-image-lightbox{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(8,15,30,.92);box-sizing:border-box}.profile-image-lightbox>img{display:block;max-width:min(94vw,1000px);max-height:88vh;width:auto;height:auto;object-fit:contain;border-radius:10px;box-shadow:0 18px 60px #0008}.profile-image-close{position:absolute;top:16px;right:18px;width:42px;height:42px;border:0;border-radius:50%;background:#fff;color:#17233d;font-size:28px;line-height:1;cursor:pointer}.profile-upload-field{border:1px solid #e2e8f2;border-radius:10px;padding:10px;margin:10px 0}.profile-upload-field>b{display:block;font-size:12px;color:#243653;margin-bottom:5px}.profile-upload-field small{display:block;font-size:10px;color:#7d899d;overflow-wrap:anywhere}";
 document.head.append(styles);
+
+const profileImageViewer=document.createElement("div");
+profileImageViewer.className="profile-image-lightbox";
+profileImageViewer.hidden=true;
+profileImageViewer.innerHTML='<button type="button" class="profile-image-close" aria-label="Close image">×</button><img alt="Full-size profile image">';
+document.body.append(profileImageViewer);
+function closeProfileImage(){profileImageViewer.hidden=true;profileImageViewer.querySelector("img").src="";}
+document.addEventListener("click",event=>{
+  const trigger=event.target.closest("[data-full-image]");
+  if(trigger){
+    event.preventDefault();event.stopPropagation();
+    const url=trigger.dataset.fullImage;
+    if(!url)return;
+    profileImageViewer.querySelector("img").src=url;
+    profileImageViewer.hidden=false;
+    return;
+  }
+  if(event.target===profileImageViewer||event.target.closest(".profile-image-close"))closeProfileImage();
+},true);
+document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!profileImageViewer.hidden)closeProfileImage();});
+
 
 function toast(message){
   const el=$("toast");
@@ -126,7 +147,7 @@ async function showMemberProfile(uid){
     const publicFields=Array.isArray(p.publicFields)?p.publicFields:null;
     const details=fields.filter(x=>p[x[1]] && (x[1]==="dateOfBirth" ? mine : (publicFields ? publicFields.includes(x[1]) : true))).map(x=>'<div class="social-item"><b>'+x[0]+'</b><small>'+escapeHtml(p[x[1]])+'</small></div>').join("");
     openPanel(mine?"My profile":(p.displayName||"Member profile"),
-      '<div style="text-align:center;padding:10px"><div style="height:110px;overflow:hidden;border-radius:13px;background:#edf3ff;margin-bottom:-32px">'+(p.coverUrl?'<img src="'+escapeHtml(p.coverUrl)+'" alt="Profile cover" style="width:100%;height:110px;object-fit:cover">':'')+'</div><div class="chat-avatar" style="position:relative;width:64px;height:64px;margin:0 auto 8px;font-size:22px;border:4px solid #fff;overflow:hidden">'+(p.avatarUrl?'<img src="'+escapeHtml(p.avatarUrl)+'" alt="Profile photo" style="width:100%;height:100%;object-fit:cover">':escapeHtml((p.displayName||"M").charAt(0).toUpperCase()))+'</div><h2>'+escapeHtml(p.displayName||"MILOOP member")+(p.verified?'<span class="md-verified" title="Verified profile">✓ Verified</span>':'')+'</h2><p>'+escapeHtml(p.bio||"")+'</p></div>'+
+      '<div style="text-align:center;padding:10px"><div style="height:110px;overflow:hidden;border-radius:13px;background:#edf3ff;margin-bottom:-32px">'+(p.coverUrl?'<button type="button" class="profile-image-view" data-full-image="'+escapeHtml(p.coverUrl)+'" aria-label="View full cover photo"><img src="'+escapeHtml(p.coverUrl)+'" alt="Profile cover" style="width:100%;height:110px;object-fit:cover"></button>':'')+'</div><div class="chat-avatar" style="position:relative;width:64px;height:64px;margin:0 auto 8px;font-size:22px;border:4px solid #fff;overflow:hidden">'+(p.avatarUrl?'<button type="button" class="profile-image-view avatar-image-view" data-full-image="'+escapeHtml(p.avatarUrl)+'" aria-label="View full profile photo"><img src="'+escapeHtml(p.avatarUrl)+'" alt="Profile photo" style="width:100%;height:100%;object-fit:cover"></button>':escapeHtml((p.displayName||"M").charAt(0).toUpperCase()))+'</div><h2>'+escapeHtml(p.displayName||"MILOOP member")+(p.verified?'<span class="md-verified" title="Verified profile">✓ Verified</span>':'')+'</h2><p>'+escapeHtml(p.bio||"")+'</p></div>'+
       (mine?'<button class="action" id="editProfileDetails" style="display:block;width:100%;margin:8px 0 14px">✎ Edit profile</button><button class="action secondary" id="shareProfileLink" style="display:block;width:100%;margin:0 0 14px">↗ Share profile</button>':'<div style="display:flex;gap:7px;margin:8px 0 14px"><button class="action" id="profileFollowToggle" style="flex:1">Loading…</button><button class="action secondary" id="messageProfile" style="flex:1">Message</button></div>')+
       '<div class="social-item"><b>Profile ID</b><small>'+escapeHtml(uid)+'</small></div><div id="profileFollowStats" style="display:flex;gap:8px;margin:10px 0"><button class="action secondary" id="showFollowers">Followers · …</button><button class="action secondary" id="showFollowing">Following · …</button></div>'+details+
       '<h3 style="font-size:13px">Posts</h3><div id="memberPosts">Loading…</div>');
