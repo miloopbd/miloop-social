@@ -420,8 +420,8 @@ handlers.allStories=()=>{
 handlers.explore=()=>{
   openPanel("Explore",'<p>Discover what is happening in your MILOOP community.</p><div class="social-item"><b>#MILOOPLaunch</b><small>Community updates</small></div><div class="social-item"><b>#CreativeMinds</b><small>Ideas and creativity</small></div><div class="social-item"><b>#DailyInspiration</b><small>Positive moments</small></div><div class="social-item"><b>#TechAndIdeas</b><small>Technology and learning</small></div>');
 };
-handlers.photo=()=>{if(!currentUser){document.querySelector("[data-open-post]")?.click();return;}document.querySelector("[data-open-post]")?.click();document.getElementById("postMediaFile")?.click();};
-handlers.video=()=>{if(!currentUser){document.querySelector("[data-open-post]")?.click();return;}document.querySelector("[data-open-post]")?.click();const picker=document.getElementById("postMediaFile");if(picker){picker.accept="video/mp4,video/webm,video/quicktime";picker.click();}};
+handlers.photo=()=>{const opener=document.querySelector(".feed .welcome [data-open-post]")||document.querySelector("[data-open-post]");opener?.click();const picker=document.getElementById("postMediaFile");if(picker)picker.accept="image/jpeg,image/png,image/webp,image/gif";};
+handlers.video=()=>{const opener=document.querySelector(".feed .welcome [data-open-post]")||document.querySelector("[data-open-post]");opener?.click();const picker=document.getElementById("postMediaFile");if(picker)picker.accept="video/mp4,video/webm,video/quicktime";};
 handlers.feeling=()=>{document.querySelector("[data-open-post]")?.click();document.getElementById("postFeeling")?.focus();};
 
 handlers.follow=()=>{
