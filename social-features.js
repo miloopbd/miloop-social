@@ -482,11 +482,12 @@ document.addEventListener("click",event=>{
   const link=event.target.closest('a[href="#messages"],a[href="#profile"]');
   if(!link)return;
   event.preventDefault();
+  event.stopImmediatePropagation();
   const action=link.getAttribute("href").slice(1);
   if(!needUser())return;
   if(typeof handlers[action]==="function")handlers[action]();
   else toast("This section is loading. Please refresh and try again.");
-});
+},true);
 ["profile","messages","notifications","allStories","explore","seePeople","photo","video","feeling"].forEach(button);
 async function updateMyPresence(isOnline){if(!currentUser)return;try{await setDoc(doc(db,"presence",currentUser.uid),{uid:currentUser.uid,isOnline,lastSeenAt:serverTimestamp()},{merge:true});}catch(e){console.warn("Presence update failed:",e);}}
 document.addEventListener("visibilitychange",()=>{if(currentUser)updateMyPresence(document.visibilityState==="visible");});
