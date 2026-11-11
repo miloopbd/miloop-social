@@ -40,7 +40,7 @@ styles.textContent = `
 .chat-presence{display:block;margin-top:4px;font-size:10px;color:#8491a6}.chat-presence.online{color:#0b9b68}.typing-status{min-height:17px;font-size:10px;color:#155eef;padding:0 4px}.reply-preview{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#eef4ff;border-left:3px solid #155eef;padding:8px 10px;border-radius:8px;margin:7px 0}.reply-preview[hidden]{display:none}.reply-preview span{min-width:0}.reply-preview b,.reply-preview small{display:block;font-size:10px;color:#40516e}.reply-preview small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;margin-top:3px}.reply-preview button{border:0;background:transparent;font-size:18px;color:#75829a}.reply-quote{border-left:2px solid #155eef;background:#f1f5fd;padding:6px 8px;border-radius:5px;margin-bottom:6px}.reply-quote b,.reply-quote span{display:block;font-size:9px;color:#53617a}.reply-quote span{margin-top:3px;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:700px){.social-panel{top:68px;right:8px;width:calc(100vw - 16px);max-height:82vh;padding:14px}.social-chat-log{height:42vh}}
 `;
-document.head.append(styles);
+styles.textContent += ".profile-upload-field{border:1px solid #e2e8f2;border-radius:10px;padding:10px;margin:10px 0}.profile-upload-field>b{display:block;font-size:12px;color:#243653;margin-bottom:5px}.profile-upload-field small{display:block;font-size:10px;color:#7d899d;overflow-wrap:anywhere}";\ndocument.head.append(styles);
 
 function toast(message){
   const el=$("toast");
@@ -185,9 +185,16 @@ function editOwnProfile(p){
   const selectedPublic=Array.isArray(p.publicFields)?p.publicFields:defaultPublic;
   openPanel("Edit profile",'<p>All fields are optional. Choose which details other signed-in members can see. Your full date of birth is private unless you explicitly make it public.</p>'+
     '<label>Display name<input id="profileName" maxlength="60" value="'+escapeHtml(p.displayName||"")+'"></label>'+
-    '<label>Bio<textarea id="profileBio" maxlength="180">'+escapeHtml(p.bio||"")+'</textarea></label><label>Profile photo<input id="profileAvatarFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></label><label>Cover photo<input id="profileCoverFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></label><small class="muted">Images up to 10 MB. Leave blank to keep the current photo.</small>'+
+    '<label>Bio<textarea id="profileBio" maxlength="180">'+escapeHtml(p.bio||"")+'</textarea></label>'+
+    '<div class="profile-upload-field"><b>Profile photo</b><input id="profileAvatarFile" type="file" accept="image/*" hidden><button type="button" class="action secondary" id="chooseProfilePhoto">Choose profile photo</button><small id="profilePhotoFileName" class="muted">No new photo selected</small></div>'+
+    '<div class="profile-upload-field"><b>Cover photo</b><input id="profileCoverFile" type="file" accept="image/*" hidden><button type="button" class="action secondary" id="chooseCoverPhoto">Choose cover photo</button><small id="coverPhotoFileName" class="muted">No new cover selected</small></div>'+
+    '<small class="muted">JPG, PNG, WebP or GIF. Images up to 10 MB. Leave blank to keep the current photo.</small>'+
     fields.map(x=>'<label>'+x[0]+'<input id="profile_'+x[1]+'" '+(x[1]==="dateOfBirth"?'type="date"':'type="text"')+' maxlength="100" value="'+escapeHtml(p[x[1]]||"")+'"></label>'+(x[1]==="dateOfBirth"?'<small style="color:#7d899d">Private — only you can see your full date of birth.</small>':'<label style="display:flex;align-items:center;gap:8px;font-size:11px"><input type="checkbox" id="public_'+x[1]+'" style="width:auto;margin:0" '+(selectedPublic.includes(x[1])?'checked':'')+'>Show '+x[0]+' on my profile</label>')).join("")+
     '<button class="action" id="savePublicProfile">Save profile</button><button class="action secondary" id="cancelProfileEdit">Cancel</button>');
+  $("chooseProfilePhoto").onclick=()=> $("profileAvatarFile").click();
+  $("chooseCoverPhoto").onclick=()=> $("profileCoverFile").click();
+  $("profileAvatarFile").onchange=()=>{$("profilePhotoFileName").textContent=$("profileAvatarFile").files[0]?.name||"No new photo selected";};
+  $("profileCoverFile").onchange=()=>{$("coverPhotoFileName").textContent=$("profileCoverFile").files[0]?.name||"No new cover selected";};
   $("cancelProfileEdit").onclick=()=>showMemberProfile(currentUser.uid);
   $("savePublicProfile").onclick=async()=>{
     const name=$("profileName").value.trim();if(!name){toast("Display name is required.");return;}
