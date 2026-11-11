@@ -214,11 +214,16 @@ async function getOrCreateChat(otherUid){
   if(!otherUid||otherUid===currentUser.uid)throw new Error("Choose another member.");
   const members=[currentUser.uid,otherUid].sort();
   const chatId=members.join("_"),chatRef=doc(db,"chats",chatId);
-  const existing=await getDoc(chatRef);
+  let existing;
+  try{existing=await getDoc(chatRef);}
+  catch(err){console.error("MILOOP chat lookup failed:",err);throw new Error("chat-lookup: "+(err.code||err.message||"unknown"));}
   if(existing.exists()){
-    await updateDoc(chatRef,{updatedAt:serverTimestamp()});
+    if(!Array.isArray(existing.data().members)||!existing.data().members.includes(currentUser.uid)||!existing.data().members.includes(otherUid)){
+      throw new Error("chat-members-mismatch: existing chat does not contain both members");
+    }
   }else{
-    await setDoc(chatRef,{members,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    try{await setDoc(chatRef,{members,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});}
+    catch(err){console.error("MILOOP chat create failed:",err);throw new Error("chat-create: "+(err.code||err.message||"unknown"));}
   }
   return {chatId,chatRef};
 }
@@ -292,7 +297,7 @@ async function openChat(otherUid,otherName){
       }catch(err){console.error("MILOOP message send error:",err);toast("Message failed: "+(err.code||err.message||"unknown error"));}
       finally{if(send)send.disabled=false;}
     };
-  }catch(e){console.error("MILOOP chat open error:",e);toast("Could not open chat: "+(e.code||e.message||"unknown error"));}
+  }catch(e){console.error("MILOOP chat open error:",e);toast("Could not open chat: "+(e.message||e.code||"unknown error"));}
 }
 handlers.messages=()=>{
   openPanel("Messenger",'<p>Search members by name or Profile ID, or open an existing conversation.</p>'+
