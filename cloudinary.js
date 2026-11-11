@@ -14,8 +14,16 @@ export async function uploadMedia(file) {
     xhr.onerror=()=>reject(new Error("Network error while uploading. Check your connection."));xhr.onabort=()=>reject(new Error("Upload cancelled."));xhr.send(form);
   });
 }
-export function mediaMarkup(media,className="miloop-media"){
-  if(!media?.mediaUrl||!["image","video"].includes(media.mediaType))return "";
-  const url=String(media.mediaUrl).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
-  return media.mediaType==="video"?'<div class="'+className+'"><video src="'+url+'" controls playsinline preload="metadata"></video></div>':'<div class="'+className+'"><img src="'+url+'" alt="MILOOP media" loading="lazy"></div>';
+export function mediaMarkup(post,className="miloop-media"){
+  const items=Array.isArray(post?.mediaItems)&&post.mediaItems.length
+    ?post.mediaItems
+    :(post?.mediaUrl&&["image","video"].includes(post.mediaType)?[{url:post.mediaUrl,type:post.mediaType}]:[]);
+  if(!items.length)return "";
+  return items.map(item=>{
+    if(!item?.url||!["image","video"].includes(item.type))return "";
+    const url=String(item.url).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+    return item.type==="video"
+      ?'<div class="'+className+'"><video src="'+url+'" controls playsinline preload="metadata"></video></div>'
+      :'<div class="'+className+'"><img src="'+url+'" alt="MILOOP media" loading="lazy"></div>';
+  }).join("");
 }
