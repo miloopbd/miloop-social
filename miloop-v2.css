@@ -20,3 +20,5 @@ html,body{width:100%;max-width:100%;overflow-x:clip}
 
 /* Top navigation Community Hub button */
 .top-community-hub{border:1px solid #dce7ff;background:#f1f6ff;color:#155eef;border-radius:9px;padding:9px 13px;font:700 11px "DM Sans",sans-serif;white-space:nowrap;cursor:pointer}.top-community-hub:hover{background:#e5efff}.top-actions{gap:8px}@media(max-width:700px){.top-community-hub{padding:8px 9px;font-size:9px}.topbar{gap:7px}.top-actions{gap:6px}.search{min-width:0;flex:1}.brand{flex:none}} 
+
+.mobile-nav button[data-md-open]{background:transparent;color:#7c899d;box-shadow:none;border:0;font:inherit;cursor:pointer}.mobile-nav button[data-md-open] small{display:block}
