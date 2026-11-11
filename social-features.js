@@ -410,7 +410,7 @@ async function openStoryDetails(storyId,storyData){
   const target=$("storyComments");if(!target)return;
   try{
    const snap=await getDocs(query(collection(db,"stories",storyId,"comments"),orderBy("createdAt","asc"),limit(100)));
-   target.innerHTML=snap.empty?'<div class="social-item">No comments yet.</div>':snap.docs.map(d=>{const c=d.data();return '<div class="social-item"><b>'+escapeHtml(c.displayName||"MILOOP member")+'</b><p>'+escapeHtml(c.text||"")+'</p><small>'+storyDate(c.createdAt)+'</small></div>';}).join("");
+   target.innerHTML=snap.empty?'<div class="social-item">No comments yet.</div>':(await Promise.all(snap.docs.map(async d=>{const c=d.data();let avatar="";if(c.uid){try{const p=await getDoc(doc(db,"publicProfiles",c.uid));avatar=p.exists()?p.data().avatarUrl||"":"";}catch(e){}}const initial=escapeHtml((c.displayName||"M").trim().charAt(0).toUpperCase());return '<div class="social-item story-comment-row"><div class="story-comment-avatar">'+(avatar?'<img src="'+escapeHtml(avatar)+'" alt="" loading="lazy">':initial)+'</div><div class="story-comment-content"><b>'+escapeHtml(c.displayName||"MILOOP member")+'</b><p>'+escapeHtml(c.text||"")+'</p><small>'+storyDate(c.createdAt)+'</small></div></div>'; }))).join("");
   }catch(e){target.textContent="Could not load comments: "+(e.code||e.message);}
  }
  async function loadStoryInsights(){
