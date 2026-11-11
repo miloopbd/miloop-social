@@ -122,8 +122,11 @@ service cloud.firestore {
       allow create: if activeMember()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.text is string
-        && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 240
+        && (request.resource.data.text.size() > 0 || ('mediaUrl' in request.resource.data))
+        && (!('mediaUrl' in request.resource.data) || (request.resource.data.mediaUrl is string && request.resource.data.mediaUrl.matches('https://res\\.cloudinary\\.com/.*')))
+        && (!('mediaType' in request.resource.data) || request.resource.data.mediaType in ['image','video'])
+        && (!('mediaPath' in request.resource.data) || request.resource.data.mediaPath is string)
         && request.resource.data.expiresAt is timestamp
         && request.resource.data.expiresAt > request.time
         && request.resource.data.expiresAt <= request.time + duration.value(25, 'h');
@@ -410,8 +413,11 @@ service cloud.firestore {
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.displayName is string
           && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 600
+          && (request.resource.data.text.size() > 0 || ('mediaUrl' in request.resource.data))
+          && (!('mediaUrl' in request.resource.data) || (request.resource.data.mediaUrl is string && request.resource.data.mediaUrl.matches('https://res\\.cloudinary\\.com/.*')))
+          && (!('mediaType' in request.resource.data) || request.resource.data.mediaType in ['image','video'])
+          && (!('mediaPath' in request.resource.data) || request.resource.data.mediaPath is string)
           && request.resource.data.createdAt == request.time;
         allow update: if activeMember() && resource.data.uid == request.auth.uid
           && request.resource.data.uid == resource.data.uid
@@ -572,8 +578,11 @@ service cloud.firestore {
         && request.resource.data.authorName.size() > 0
         && request.resource.data.authorName.size() <= 60
         && request.resource.data.text is string
-        && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 1000
+        && (request.resource.data.text.size() > 0 || ('mediaUrl' in request.resource.data))
+        && (!('mediaUrl' in request.resource.data) || (request.resource.data.mediaUrl is string && request.resource.data.mediaUrl.matches('https://res\\.cloudinary\\.com/.*')))
+        && (!('mediaType' in request.resource.data) || request.resource.data.mediaType in ['image','video'])
+        && (!('mediaPath' in request.resource.data) || request.resource.data.mediaPath is string)
         && request.resource.data.likes is list
         && request.resource.data.likes.size() == 0
         && request.resource.data.likeCount == 0
