@@ -93,7 +93,7 @@ function observeVideos() {
   if (observer) observer.disconnect();
   const cards = feed.querySelectorAll(".reel-card");
   if (!("IntersectionObserver" in window)) {
-    cards.forEach(card => { const video = card.querySelector("video"); if (video) video.play().catch(() => {}); });
+    cards.forEach(card => { const video = card.querySelector("video"); if (video) video.play().catch(() => {}); recordReelView(card); });
     return;
   }
   observer = new IntersectionObserver(entries => {
@@ -240,6 +240,7 @@ $("reelUploadForm").addEventListener("submit", async event => {
       createdAt: serverTimestamp(),
       likes: [],
       likeCount: 0,
+      viewCount: 0,
       background: "plain",
       feeling: ""
     });
