@@ -1,7 +1,7 @@
 import { auth, db } from "./firebase.js";
 import { uploadMedia } from "./cloudinary.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { collection, addDoc, getDocs, query, orderBy, limit, doc, updateDoc, arrayUnion, arrayRemove, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, query, orderBy, limit, doc, updateDoc, arrayUnion, arrayRemove, increment, serverTimestamp, writeBatch, where } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
 const feed = $("reelsFeed");
@@ -11,6 +11,7 @@ let currentUser = null;
 let activeCommentPost = null;
 let toastTimer = null;
 let observer = null;
+const viewedThisSession = new Set();
 const profileCache = new Map();
 
 function esc(value) {
@@ -61,7 +62,7 @@ function mediaFor(post) {
 function mediaElement(item, index) {
   const url = esc(item.url);
   if (item.type === "video") {
-    return '<video class="reel-video" src="' + url + '" playsinline loop muted preload="' + (index < 2 ? "auto" : "metadata") + '" aria-label="MILOOP video"></video>';
+    return '<video class="reel-video" src="' + url + '" playsinline loop muted preload="' + (index < 2 ? "auto" : "metadata") + '" aria-label="MILOOP video"></video><div class="reel-video-progress" aria-hidden="true"><span></span></div><button class="reel-play-toggle" type="button" data-reel-play aria-label="Play or pause">Ⅱ</button><button class="reel-fullscreen" type="button" data-reel-fullscreen aria-label="Full screen">⛶</button>';
   }
   return '<img src="' + url + '" alt="MILOOP photo" loading="' + (index < 2 ? "eager" : "lazy") + '">';
 }
@@ -75,8 +76,9 @@ function renderCards(items) {
     const liked = !!(currentUser && Array.isArray(post.likes) && post.likes.includes(currentUser.uid));
     const avatar = item.profile.avatarUrl ? '<img src="' + esc(item.profile.avatarUrl) + '" alt="">' : esc(initials(post.authorName));
     const typeLabel = item.media.type === "video" ? "▶ Video" : "▧ Photo";
+    const viewCount = Number(post.viewCount) || 0;
     const media = mediaElement(item.media, index);
-    return '<article class="reel-card" data-post-id="' + esc(post.id) + '" data-media-type="' + esc(item.media.type) + '">' +
+    return '<article class="reel-card" data-post-id="' + esc(post.id) + '" data-author-uid="' + esc(post.authorUid || "") + '" data-media-type="' + esc(item.media.type) + '">' +
       '<div class="reel-media">' + media + '</div><div class="reel-shade"></div>' +
       (item.media.type === "video" ? '<button class="reel-mute" type="button" data-reel-mute aria-label="Toggle sound">🔇</button>' : '') +
       '<div class="reel-copy"><div class="reel-author"><div class="reel-avatar">' + avatar + '</div><div><div class="reel-author-name">' + esc(post.authorName || "MILOOP member") + '</div><div class="reel-author-time">' + esc(timeLabel(post.createdAt)) + '</div></div></div>' +
@@ -102,7 +104,69 @@ function observeVideos() {
       else video.pause();
     });
   }, { root: feed, threshold: [0,0.65,1] });
-  cards.forEach(card => observer.observe(card));
+  cards.forEach(card => {
+    observer.observe(card);
+    const video = card.querySelector("video");
+    if (video) video.addEventListener("timeupdate", () => {
+      const bar = card.querySelector(".reel-video-progress span");
+      if (bar && video.duration) bar.style.width = ((video.currentTime / video.duration) * 100) + "%";
+    });
+  });
+}
+async function recordReelView(card) {
+  const postId = card.dataset.postId;
+  const authorUid = card.dataset.authorUid;
+  if (!currentUser || !postId || !authorUid || authorUid === currentUser.uid || viewedThisSession.has(postId)) return;
+  viewedThisSession.add(postId);
+  try {
+    const profile = await getProfile(currentUser.uid);
+    const displayName = (profile.displayName || currentUser.displayName || currentUser.email?.split("@")[0] || "MILOOP member").trim();
+    const batch = writeBatch(db);
+    batch.set(doc(db, "posts", postId, "views", currentUser.uid), {
+      uid: currentUser.uid,
+      displayName,
+      viewedAt: serverTimestamp()
+    });
+    batch.update(doc(db, "posts", postId), { viewCount: increment(1) });
+    await batch.commit();
+    const count = card.querySelector(".reel-view-count small");
+    if (count) count.textContent = (Number(count.textContent.replace(/,/g, "")) + 1).toLocaleString();
+  } catch (error) {
+    // A denied create usually means this member already viewed this Reel.
+    if (error.code !== "permission-denied" && error.code !== "already-exists") {
+      viewedThisSession.delete(postId);
+      console.warn("Reel view could not be recorded:", error);
+    }
+  }
+}
+function formatCount(value) {
+  return new Intl.NumberFormat().format(Number(value) || 0);
+}
+async function openCreatorAnalytics() {
+  if (!currentUser) { toast("Sign in to view Creator Analytics."); return; }
+  const dialog = $("reelAnalyticsDialog");
+  const content = $("reelAnalyticsContent");
+  content.innerHTML = '<div class="reels-loading"><span class="reels-spinner"></span><small>Preparing your creator insights…</small></div>';
+  dialog.showModal();
+  try {
+    const snap = await getDocs(query(collection(db, "posts"), where("authorUid", "==", currentUser.uid), limit(100)));
+    const posts = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(post => mediaFor(post).length && !post.sponsored);
+    const totals = posts.reduce((sum, post) => ({
+      views: sum.views + (Number(post.viewCount) || 0),
+      likes: sum.likes + (Number(post.likeCount) || 0)
+    }), { views: 0, likes: 0 });
+    const ranked = [...posts].sort((a,b) => (Number(b.viewCount)||0) - (Number(a.viewCount)||0)).slice(0,5);
+    content.innerHTML = '<div class="reel-analytics-stats">' +
+      '<div><small>Total Reels</small><b>' + formatCount(posts.length) + '</b></div>' +
+      '<div><small>Total Views</small><b>' + formatCount(totals.views) + '</b></div>' +
+      '<div><small>Total Likes</small><b>' + formatCount(totals.likes) + '</b></div></div>' +
+      '<h3 class="reel-analytics-title">Top Reels</h3>' +
+      (ranked.length ? ranked.map((post,i) => '<div class="reel-analytics-row"><span>' + (i+1) + '</span><div><b>' + esc((post.text || "Untitled Reel").slice(0,72)) + '</b><small>' + esc(post.mediaType === "video" ? "Video" : "Photo") + '</small></div><strong>◉ ' + formatCount(post.viewCount) + '</strong></div>').join("") : '<p class="reels-upload-help">Your published Reels and insights will appear here.</p>') +
+      '<p class="reels-upload-help">Insights show counts from your latest 100 media posts.</p>';
+  } catch (error) {
+    console.error("Creator analytics failed:", error);
+    content.innerHTML = '<p class="reels-error">Could not load insights. Please try again.</p>';
+  }
 }
 async function loadReels() {
   feed.innerHTML = '<div class="reels-loading"><span class="reels-spinner"></span><b>Loading Reels…</b><small>Finding moments from your community</small></div>';
@@ -199,6 +263,17 @@ feed.addEventListener("click", async event => {
   if (event.target.closest("[data-reel-retry]")) { loadReels(); return; }
   if (!card) return;
   const postId = card.dataset.postId;
+  if (event.target.closest("[data-reel-play]")) {
+    const video = card.querySelector("video");
+    if (video) { if (video.paused) video.play().catch(() => {}); else video.pause(); event.target.closest("[data-reel-play]").textContent = video.paused ? "▶" : "Ⅱ"; }
+    return;
+  }
+  if (event.target.closest("[data-reel-fullscreen]")) {
+    const media = card.querySelector("video, img");
+    if (media?.requestFullscreen) media.requestFullscreen().catch(() => toast("Full screen is unavailable."));
+    else toast("Full screen is unavailable on this browser.");
+    return;
+  }
   if (event.target.closest("[data-reel-mute]")) {
     const video = card.querySelector("video");
     if (video) {
@@ -256,6 +331,9 @@ async function loadComments(postId) {
   }
 }
 $("closeReelComments").addEventListener("click", () => commentsDialog.close());
+$("openCreatorAnalytics").addEventListener("click", openCreatorAnalytics);
+$("closeReelAnalytics").addEventListener("click", () => $("reelAnalyticsDialog").close());
+$("reelAnalyticsDialog").addEventListener("click", event => { if (event.target === $("reelAnalyticsDialog")) $("reelAnalyticsDialog").close(); });
 commentsDialog.addEventListener("click", event => { if (event.target === commentsDialog) commentsDialog.close(); });
 $("reelCommentForm").addEventListener("submit", async event => {
   event.preventDefault();
