@@ -99,9 +99,10 @@ function observeVideos() {
   observer = new IntersectionObserver(entries => {
     entries.forEach(entry => {
       const video = entry.target.querySelector("video");
-      if (!video) return;
-      if (entry.isIntersecting && entry.intersectionRatio >= 0.65) video.play().catch(() => {});
-      else video.pause();
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.65) {
+        recordReelView(entry.target);
+        if (video) video.play().catch(() => {});
+      } else if (video) video.pause();
     });
   }, { root: feed, threshold: [0,0.65,1] });
   cards.forEach(card => {
