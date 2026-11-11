@@ -213,14 +213,11 @@ document.addEventListener("click",event=>{
 async function getOrCreateChat(otherUid){
   if(!otherUid||otherUid===currentUser.uid)throw new Error("Choose another member.");
   const members=[currentUser.uid,otherUid].sort();
-  const matches=await getDocs(query(collection(db,"chats"),where("members","array-contains",currentUser.uid)));
-  const existing=matches.docs.find(item=>(item.data().members||[]).includes(otherUid));
-  let chatId,chatRef;
-  if(existing){
-    chatId=existing.id;chatRef=doc(db,"chats",chatId);
+  const chatId=members.join("_"),chatRef=doc(db,"chats",chatId);
+  const existing=await getDoc(chatRef);
+  if(existing.exists()){
     await updateDoc(chatRef,{updatedAt:serverTimestamp()});
   }else{
-    chatId=members.join("_");chatRef=doc(db,"chats",chatId);
     await setDoc(chatRef,{members,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
   }
   return {chatId,chatRef};
@@ -289,7 +286,7 @@ async function openChat(otherUid,otherName){
         await addDoc(messagesRef,payload);
         await updateDoc(chatRef,{updatedAt:serverTimestamp(),lastMessage:text.slice(0,120),lastMessageAt:serverTimestamp(),lastMessageUid:currentUser.uid});
         const chatData=(await getDoc(chatRef)).data(),recipientUid=(chatData.members||[]).find(uid=>uid!==currentUser.uid);
-        if(recipientUid)await addDoc(collection(db,"users",recipientUid,"notifications"),{type:"message",fromUid:currentUser.uid,toUid:recipientUid,chatId,text:(currentUser.displayName||"A member")+" sent you a message.",createdAt:serverTimestamp(),read:false});
+        if(recipientUid)await addDoc(collection(db,"users",recipientUid,"notifications"),{type:"message",fromUid:currentUser.uid,toUid:recipientUid,chatId,text:(currentUser.displayName||"A member")+" sent you a message.",createdAt:serverTimestamp(),read:false}).catch(err=>console.warn("Message notification was not saved:",err));
         input.value="";replyTarget=null;$("replyPreview").hidden=true;$("replyPreview").innerHTML="";
         await setDoc(typingRef,{uid:currentUser.uid,typing:false,updatedAt:serverTimestamp()},{merge:true});
       }catch(err){console.error("MILOOP message send error:",err);toast("Message failed: "+(err.code||err.message||"unknown error"));}
@@ -420,9 +417,20 @@ handlers.allStories=()=>{
 handlers.explore=()=>{
   openPanel("Explore",'<p>Discover what is happening in your MILOOP community.</p><div class="social-item"><b>#MILOOPLaunch</b><small>Community updates</small></div><div class="social-item"><b>#CreativeMinds</b><small>Ideas and creativity</small></div><div class="social-item"><b>#DailyInspiration</b><small>Positive moments</small></div><div class="social-item"><b>#TechAndIdeas</b><small>Technology and learning</small></div>');
 };
-handlers.photo=()=>{const opener=document.querySelector(".feed .welcome [data-open-post]")||document.querySelector("[data-open-post]");opener?.click();const picker=document.getElementById("postMediaFile");if(picker)picker.accept="image/jpeg,image/png,image/webp,image/gif";};
-handlers.video=()=>{const opener=document.querySelector(".feed .welcome [data-open-post]")||document.querySelector("[data-open-post]");opener?.click();const picker=document.getElementById("postMediaFile");if(picker)picker.accept="video/mp4,video/webm,video/quicktime";};
-handlers.feeling=()=>{document.querySelector("[data-open-post]")?.click();document.getElementById("postFeeling")?.focus();};
+function openComposerFor(kind){
+  const dialog=document.getElementById("postDialog"),picker=document.getElementById("postMediaFile");
+  if(kind==="photo"&&picker)picker.accept="image/jpeg,image/png,image/webp,image/gif";
+  if(kind==="video"&&picker)picker.accept="video/mp4,video/webm,video/quicktime";
+  if(dialog&&!dialog.open)dialog.showModal();
+  if((kind==="photo"||kind==="video")&&picker){
+    if(typeof picker.showPicker==="function"){try{picker.showPicker();}catch(_){picker.click();}}
+    else picker.click();
+  }
+  if(kind==="feeling")document.getElementById("postFeeling")?.focus();
+}
+handlers.photo=()=>openComposerFor("photo");
+handlers.video=()=>openComposerFor("video");
+handlers.feeling=()=>openComposerFor("feeling");
 
 handlers.follow=()=>{
   openPanel("Find and follow members",'<p>Enter a member Profile ID to look up their public profile.</p><input id="memberProfileId" placeholder="Member Profile ID" autocomplete="off"><button class="action" id="lookupMember">Find member</button><div id="memberResult"></div>');
