@@ -119,6 +119,15 @@ announcementFeed.addEventListener("click",e=>{
  if(button){button.closest(".miloop-announcement-card")?.remove();announcementFeed.hidden=!announcementFeed.children.length;}
 });
 
+const commentProfileCache = new Map();
+async function commentAvatar(uid,name,sizeClass=""){
+  if(uid && !commentProfileCache.has(uid)){
+    const promise=getDoc(doc(db,"publicProfiles",uid)).then(s=>s.exists()?(s.data().avatarUrl||""):"").catch(()=> "");
+    commentProfileCache.set(uid,promise);
+  }
+  const url=uid?await commentProfileCache.get(uid):"";
+  return '<div class="comment-avatar '+sizeClass+'">'+(url?'<img src="'+safe(url)+'" alt="" loading="lazy">':safe(initials(name)))+'</div>';
+}
 const commentsDialog = $("commentsDialog");
 const commentForm = $("commentForm");
 const commentText = $("commentText");
@@ -199,6 +208,10 @@ async function openComments(post) {
         getDocs(query(collection(db,"posts",post.id,"comments",d.id,"replies"),orderBy("createdAt","asc"))),
         currentUser ? getDoc(doc(db,"posts",post.id,"comments",d.id,"reactions",currentUser.uid)) : Promise.resolve(null)
       ]);
+      const profileUids=[c.uid,...repliesSnap.docs.map(rd=>rd.data().uid)].filter(Boolean);
+      const commentProfiles={};
+      await Promise.all([...new Set(profileUids)].map(async uid=>{try{const p=await getDoc(doc(db,"publicProfiles",uid));commentProfiles[uid]=p.exists()?p.data():{};}catch(e){commentProfiles[uid]={};}}));
+      const avatarFor=(uid,name,small=false)=>{const url=commentProfiles[uid]?.avatarUrl;return '<div class="comment-avatar '+(small?'small':'')+'">'+(url?'<img src="'+safe(url)+'" alt="" loading="lazy">':safe(initials(name)))+'</div>';};
       const reactionTotals={};
       reactionSnap.docs.forEach(rd=>{const type=rd.data().type||"like";reactionTotals[type]=(reactionTotals[type]||0)+1;});
       const reactionEmoji={like:"👍",love:"❤️",care:"🥰",haha:"😂",wow:"😮",sad:"😢",angry:"😡"};
@@ -206,9 +219,9 @@ async function openComments(post) {
       const myCommentReaction=myReactionSnap?.exists()?myReactionSnap.data().type:"";
       const replies = repliesSnap.docs.map(rd=>{
         const reply=rd.data(), ownReply=currentUser && currentUser.uid===reply.uid;
-        return '<div class="comment-reply"><div class="comment-avatar">'+safe(initials(reply.displayName))+'</div><div class="comment-body"><b><button type="button" class="profile-name-link" data-profile-uid="'+safe(reply.uid)+'">'+safe(reply.displayName||"MILOOP member")+'</button></b><p>'+safe(reply.text)+'</p><small>'+safe(relativeTime(reply.createdAt))+'</small>'+(ownReply?'<button type="button" class="comment-delete" data-reply-delete="'+safe(d.id)+'|'+safe(rd.id)+'">Delete</button>':"")+'</div></div>';
+        return '<div class="comment-reply">'+avatarFor(reply.uid,reply.displayName,true)<div class="comment-body"><b><button type="button" class="profile-name-link" data-profile-uid="'+safe(reply.uid)+'">'+safe(reply.displayName||"MILOOP member")+'</button></b><p>'+safe(reply.text)+'</p><small>'+safe(relativeTime(reply.createdAt))+'</small>'+(ownReply?'<button type="button" class="comment-delete" data-reply-delete="'+safe(d.id)+'|'+safe(rd.id)+'">Delete</button>':"")+'</div></div>';
       }).join("");
-      return '<div class="comment-item" data-comment-id="'+safe(d.id)+'"><div class="comment-avatar">'+safe(initials(c.displayName))+'</div><div class="comment-body"><b><button type="button" class="profile-name-link" data-profile-uid="'+safe(c.uid)+'">'+safe(c.displayName||"MILOOP member")+'</button></b><p>'+safe(c.text)+'</p><small>'+safe(relativeTime(c.createdAt))+(c.edited?' · edited':"")+'</small><div class="comment-tools"><button type="button" data-comment-reaction-toggle="'+safe(d.id)+'">'+(reactionEmoji[myCommentReaction]||"☺")+' React</button><button type="button" data-comment-reaction-list="'+safe(d.id)+'">'+safe(reactionSummary||"0 reactions")+'</button><button type="button" data-reply-toggle="'+safe(d.id)+'">Reply</button>'+(own?'<button type="button" data-comment-edit="'+safe(d.id)+'">Edit</button><button type="button" class="comment-delete" data-comment-delete="'+safe(d.id)+'">Delete</button>':"")+'</div><div class="comment-reaction-picker" data-comment-picker="'+safe(d.id)+'" hidden>'+Object.entries(reactionEmoji).map(([type,emoji])=>'<button type="button" data-comment-reaction="'+type+'" data-comment-id="'+safe(d.id)+'" aria-label="'+type+'">'+emoji+'</button>').join("")+'</div><form class="reply-form" data-reply-form="'+safe(d.id)+'" hidden><input maxlength="500" placeholder="Write a reply…" required><button type="submit">Reply</button></form><div class="comment-replies">'+replies+'</div></div></div>';
+      return '<div class="comment-item" data-comment-id="'+safe(d.id)+'">'+avatarFor(c.uid,c.displayName)<div class="comment-body"><b><button type="button" class="profile-name-link" data-profile-uid="'+safe(c.uid)+'">'+safe(c.displayName||"MILOOP member")+'</button></b><p>'+safe(c.text)+'</p><small>'+safe(relativeTime(c.createdAt))+(c.edited?' · edited':"")+'</small><div class="comment-tools"><button type="button" data-comment-reaction-toggle="'+safe(d.id)+'">'+(reactionEmoji[myCommentReaction]||"☺")+' React</button><button type="button" data-comment-reaction-list="'+safe(d.id)+'">'+safe(reactionSummary||"0 reactions")+'</button><button type="button" data-reply-toggle="'+safe(d.id)+'">Reply</button>'+(own?'<button type="button" data-comment-edit="'+safe(d.id)+'">Edit</button><button type="button" class="comment-delete" data-comment-delete="'+safe(d.id)+'">Delete</button>':"")+'</div><div class="comment-reaction-picker" data-comment-picker="'+safe(d.id)+'" hidden>'+Object.entries(reactionEmoji).map(([type,emoji])=>'<button type="button" data-comment-reaction="'+type+'" data-comment-id="'+safe(d.id)+'" aria-label="'+type+'">'+emoji+'</button>').join("")+'</div><form class="reply-form" data-reply-form="'+safe(d.id)+'" hidden><input maxlength="500" placeholder="Write a reply…" required><button type="submit">Reply</button></form><div class="comment-replies">'+replies+'</div></div></div>';
     }));
     $("commentsList").innerHTML = rows.length ? rows.join("") : '<p class="comment-empty">No comments yet. Start the conversation.</p>';
   },err=>{console.error(err);$("commentsList").innerHTML='<p class="comment-empty">Could not load comments.</p>';});
