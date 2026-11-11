@@ -367,6 +367,7 @@ onAuthStateChanged(auth, user => {
     $("openReelUpload").onclick = () => { location.href = "index.html"; };
   } else {
     $("openReelUpload").onclick = openUpload;
+    observeVideos();
   }
 });
 loadReels();
