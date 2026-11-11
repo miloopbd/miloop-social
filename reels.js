@@ -322,10 +322,13 @@ async function loadComments(postId) {
   try {
     const snap = await getDocs(query(collection(db, "posts", postId, "comments"), orderBy("createdAt", "asc"), limit(80)));
     if (!snap.size) { list.innerHTML = '<p class="reels-upload-help">No comments yet. Start the conversation.</p>'; return; }
-    list.innerHTML = snap.docs.map(d => {
-      const c = d.data();
-      return '<article class="reel-comment"><b>' + esc(c.displayName || "MILOOP member") + '</b><p>' + esc(c.text || "") + '</p><small>' + esc(timeLabel(c.createdAt)) + '</small></article>';
-    }).join("");
+    const comments = await Promise.all(snap.docs.map(async d => {
+      const c=d.data(); let avatar="";
+      if(c.uid){try{const p=await getDoc(doc(db,"publicProfiles",c.uid));avatar=p.exists()?p.data().avatarUrl||"":"";}catch(e){console.warn("Reel commenter profile unavailable",e);}}
+      const initial=esc((c.displayName||"M").trim().charAt(0).toUpperCase());
+      return '<article class="reel-comment"><div class="reel-comment-avatar">'+(avatar?'<img src="'+esc(avatar)+'" alt="" loading="lazy">':initial)+'</div><div class="reel-comment-content"><b>' + esc(c.displayName || "MILOOP member") + '</b><p>' + esc(c.text || "") + '</p><small>' + esc(timeLabel(c.createdAt)) + '</small></div></article>';
+    }));
+    list.innerHTML = comments.join("");
     list.scrollTop = list.scrollHeight;
   } catch (error) {
     console.error("Could not load Reel comments:", error);
