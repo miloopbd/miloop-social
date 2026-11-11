@@ -319,7 +319,10 @@ $("postMediaFile")?.addEventListener("change",()=>{
     node.className="miloop-upload-preview";node.alt="Selected media preview";wrap.append(node);
     const remove=document.createElement("button");remove.type="button";remove.className="miloop-remove-media";remove.textContent="Remove";
     remove.addEventListener("click",()=>{
-      URL.revokeObjectURL(objectUrl);selectedPostFiles.splice(index,1);wrap.remove();
+      URL.revokeObjectURL(objectUrl);
+      const currentIndex=selectedPostFiles.indexOf(file);
+      if(currentIndex!==-1)selectedPostFiles.splice(currentIndex,1);
+      wrap.remove();
       const transfer=new DataTransfer();selectedPostFiles.forEach(f=>transfer.items.add(f));picker.files=transfer.files;
     });
     wrap.append(remove);preview.append(wrap);
