@@ -588,7 +588,7 @@ service cloud.firestore {
         && request.resource.data.likeCount == 0
         && (!('background' in request.resource.data) || request.resource.data.background in ['plain','sunset','ocean','mint','lavender','rose','night'])
         && (!('feeling' in request.resource.data) || request.resource.data.feeling in ['','happy','excited','grateful','loved','motivated','thoughtful','celebrating'])
-        && request.resource.data.createdAt == request.time;
+        && request.resource.data.createdAt == request.time);
 
       allow update: if (
         activeMember()
