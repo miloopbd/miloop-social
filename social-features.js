@@ -1,4 +1,5 @@
 import { auth, db } from "./firebase.js";
+import { uploadMedia, mediaMarkup } from "./cloudinary.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   doc, getDoc, getDocs, setDoc, addDoc, collection, collectionGroup, onSnapshot, query, orderBy,
@@ -124,7 +125,7 @@ async function showMemberProfile(uid){
     const publicFields=Array.isArray(p.publicFields)?p.publicFields:null;
     const details=fields.filter(x=>p[x[1]] && (x[1]==="dateOfBirth" ? mine : (publicFields ? publicFields.includes(x[1]) : true))).map(x=>'<div class="social-item"><b>'+x[0]+'</b><small>'+escapeHtml(p[x[1]])+'</small></div>').join("");
     openPanel(mine?"My profile":(p.displayName||"Member profile"),
-      '<div style="text-align:center;padding:10px"><div class="chat-avatar" style="width:64px;height:64px;margin:auto;font-size:22px">'+escapeHtml((p.displayName||"M").charAt(0).toUpperCase())+'</div><h2>'+escapeHtml(p.displayName||"MILOOP member")+(p.verified?'<span class="md-verified" title="Verified profile">✓ Verified</span>':'')+'</h2><p>'+escapeHtml(p.bio||"")+'</p></div>'+
+      '<div style="text-align:center;padding:10px"><div style="height:110px;overflow:hidden;border-radius:13px;background:#edf3ff;margin-bottom:-32px">'+(p.coverUrl?'<img src="'+escapeHtml(p.coverUrl)+'" alt="Profile cover" style="width:100%;height:110px;object-fit:cover">':'')+'</div><div class="chat-avatar" style="position:relative;width:64px;height:64px;margin:0 auto 8px;font-size:22px;border:4px solid #fff;overflow:hidden">'+(p.avatarUrl?'<img src="'+escapeHtml(p.avatarUrl)+'" alt="Profile photo" style="width:100%;height:100%;object-fit:cover">':escapeHtml((p.displayName||"M").charAt(0).toUpperCase()))+'</div><h2>'+escapeHtml(p.displayName||"MILOOP member")+(p.verified?'<span class="md-verified" title="Verified profile">✓ Verified</span>':'')+'</h2><p>'+escapeHtml(p.bio||"")+'</p></div>'+
       (mine?'<button class="action" id="editProfileDetails" style="display:block;width:100%;margin:8px 0 14px">✎ Edit profile</button><button class="action secondary" id="shareProfileLink" style="display:block;width:100%;margin:0 0 14px">↗ Share profile</button>':'<div style="display:flex;gap:7px;margin:8px 0 14px"><button class="action" id="profileFollowToggle" style="flex:1">Loading…</button><button class="action secondary" id="messageProfile" style="flex:1">Message</button></div>')+
       '<div class="social-item"><b>Profile ID</b><small>'+escapeHtml(uid)+'</small></div><div id="profileFollowStats" style="display:flex;gap:8px;margin:10px 0"><button class="action secondary" id="showFollowers">Followers · …</button><button class="action secondary" id="showFollowing">Following · …</button></div>'+details+
       '<h3 style="font-size:13px">Posts</h3><div id="memberPosts">Loading…</div>');
@@ -184,7 +185,7 @@ function editOwnProfile(p){
   const selectedPublic=Array.isArray(p.publicFields)?p.publicFields:defaultPublic;
   openPanel("Edit profile",'<p>All fields are optional. Choose which details other signed-in members can see. Your full date of birth is private unless you explicitly make it public.</p>'+
     '<label>Display name<input id="profileName" maxlength="60" value="'+escapeHtml(p.displayName||"")+'"></label>'+
-    '<label>Bio<textarea id="profileBio" maxlength="180">'+escapeHtml(p.bio||"")+'</textarea></label>'+
+    '<label>Bio<textarea id="profileBio" maxlength="180">'+escapeHtml(p.bio||"")+'</textarea></label><label>Profile photo<input id="profileAvatarFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></label><label>Cover photo<input id="profileCoverFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></label><small class="muted">Images up to 10 MB. Leave blank to keep the current photo.</small>'+
     fields.map(x=>'<label>'+x[0]+'<input id="profile_'+x[1]+'" '+(x[1]==="dateOfBirth"?'type="date"':'type="text"')+' maxlength="100" value="'+escapeHtml(p[x[1]]||"")+'"></label>'+(x[1]==="dateOfBirth"?'<small style="color:#7d899d">Private — only you can see your full date of birth.</small>':'<label style="display:flex;align-items:center;gap:8px;font-size:11px"><input type="checkbox" id="public_'+x[1]+'" style="width:auto;margin:0" '+(selectedPublic.includes(x[1])?'checked':'')+'>Show '+x[0]+' on my profile</label>')).join("")+
     '<button class="action" id="savePublicProfile">Save profile</button><button class="action secondary" id="cancelProfileEdit">Cancel</button>');
   $("cancelProfileEdit").onclick=()=>showMemberProfile(currentUser.uid);
@@ -194,10 +195,13 @@ function editOwnProfile(p){
     fields.forEach(x=>data[x[1]]=$("profile_"+x[1]).value.trim().slice(0,100));
     data.publicFields=fields.filter(x=>x[1]!=="dateOfBirth" && $("public_"+x[1]).checked).map(x=>x[1]);
     try{
+      const avatarFile=$("profileAvatarFile")?.files?.[0],coverFile=$("profileCoverFile")?.files?.[0];
+      if(avatarFile){const uploaded=await uploadMedia(avatarFile);if(uploaded.type!=="image")throw new Error("Profile photos must be images.");data.avatarUrl=uploaded.url;}
+      if(coverFile){const uploaded=await uploadMedia(coverFile);if(uploaded.type!=="image")throw new Error("Cover photos must be images.");data.coverUrl=uploaded.url;}
       await updateDoc(doc(db,"publicProfiles",currentUser.uid),data);
       await (await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js")).updateProfile(currentUser,{displayName:name});
       toast("Profile saved.");showMemberProfile(currentUser.uid);
-    }catch(e){console.error(e);toast("Could not save profile: "+(e.code||e.message));}
+    }catch(e){console.error(e);toast("Could not save profile: "+(e.message||e.code));}
   };
 }
 handlers.profile=async()=>{try{await ensurePublicProfile(currentUser);await showMemberProfile(currentUser.uid);}catch(e){console.error(e);toast("Could not open profile: "+e.code);}};
@@ -360,7 +364,7 @@ async function openStoryDetails(storyId,storyData){
    uid:currentUser.uid,displayName:storyName(),viewedAt:serverTimestamp()
   },{merge:true});
  }catch(e){console.warn("Story view tracking failed:",e);}
- openPanel("Story",'<div class="social-item"><b>'+escapeHtml(storyData.displayName||"MILOOP member")+'</b><p style="white-space:pre-wrap">'+escapeHtml(storyData.text||"")+'</p><small>'+storyDate(storyData.createdAt)+'</small></div>'+
+ openPanel("Story",'<div class="social-item"><b>'+escapeHtml(storyData.displayName||"MILOOP member")+'</b><p style="white-space:pre-wrap">'+escapeHtml(storyData.text||"")+'</p>'+mediaMarkup(storyData,"miloop-media")+'<small>'+storyDate(storyData.createdAt)+'</small></div>'+
   '<div style="display:flex;gap:8px;margin:10px 0"><button class="action" id="storyLike">♡ Like</button><button class="action secondary" id="storyCommentFocus">Comment</button></div>'+
   '<div id="storyOwnerInsights" class="social-item" style="display:'+(owner?"block":"none")+'"><b>Story insights</b><p id="storyInsightCounts">Loading likes and views…</p><div id="storyLikesList"></div><div id="storyViewsList"></div></div>'+
   '<h3 style="font-size:13px">Comments</h3><div id="storyComments">Loading…</div><form id="storyCommentForm" style="display:flex;gap:7px;margin-top:10px"><input id="storyCommentInput" maxlength="300" placeholder="Write a comment…" required style="flex:1;min-width:0"><button class="action" type="submit">Send</button></form>');
@@ -399,17 +403,14 @@ async function openStoryDetails(storyId,storyData){
  await loadComments();await loadStoryInsights();
 }
 handlers.allStories=()=>{
- openPanel("Stories",'<p>Stories stay visible for 24 hours.</p><button class="action" id="createStory">＋ Add story</button><div id="storiesList">Loading…</div>');
- $("createStory").onclick=async()=>{
-  const text=window.prompt("Write a story (maximum 240 characters)");
-  if(!text||!text.trim())return;
-  try{await addDoc(collection(db,"stories"),{uid:currentUser.uid,displayName:storyName(),text:text.trim().slice(0,240),createdAt:serverTimestamp(),expiresAt:new Date(Date.now()+86400000)});toast("Story shared for 24 hours.");}
-  catch(e){console.error(e);toast("Could not publish story: "+(e.code||e.message));}
- };
+ openPanel("Stories",'<p>Stories stay visible for 24 hours.</p><form id="createStoryForm"><textarea id="storyTextInput" maxlength="240" placeholder="Write a story…"></textarea><label class="action secondary" style="display:inline-block">＋ Add photo or video<input id="storyMediaFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" style="display:block;max-width:100%;font-size:10px;margin-top:7px"></label><div id="storyMediaPreview"></div><button class="action" type="submit">Share story</button></form><div id="storiesList">Loading…</div>');
+ let storyMediaFile=null;
+ $("storyMediaFile").onchange=()=>{storyMediaFile=$("storyMediaFile").files?.[0]||null;const holder=$("storyMediaPreview");holder.innerHTML="";if(storyMediaFile){const node=document.createElement(storyMediaFile.type.startsWith("video/")?"video":"img");node.src=URL.createObjectURL(storyMediaFile);if(node.tagName==="VIDEO"){node.controls=true;node.playsInline=true;}node.style.cssText="display:block;width:100%;max-height:220px;object-fit:contain;margin:8px 0;border-radius:9px;background:#101828";holder.append(node);}};
+ $("createStoryForm").onsubmit=async e=>{e.preventDefault();const text=$("storyTextInput").value.trim();if(!text&&!storyMediaFile){toast("Write a story or attach media.");return;}const btn=e.submitter;if(btn)btn.disabled=true;try{let media={};if(storyMediaFile){btn.textContent="Uploading…";media=await uploadMedia(storyMediaFile);}await addDoc(collection(db,"stories"),{uid:currentUser.uid,displayName:storyName(),text:text.slice(0,240),...(media.url?{mediaUrl:media.url,mediaType:media.type,mediaPath:media.publicId}:{}),createdAt:serverTimestamp(),expiresAt:new Date(Date.now()+86400000)});toast("Story shared for 24 hours.");$("storyTextInput").value="";$("storyMediaFile").value="";$("storyMediaPreview").innerHTML="";storyMediaFile=null;}catch(e){console.error(e);toast("Could not publish story: "+(e.message||e.code));}finally{if(btn){btn.disabled=false;btn.textContent="Share story";}}};
  stopListener=onSnapshot(query(collection(db,"stories"),orderBy("createdAt","desc"),limit(60)),snap=>{
   const target=$("storiesList");if(!target)return;
   const active=snap.docs.filter(d=>{const exp=d.data().expiresAt?.toDate?.();return exp&&exp.getTime()>Date.now();});
-  target.innerHTML=active.length?active.map(d=>{const x=d.data();return '<div class="social-item"><b>'+escapeHtml(x.displayName||"MILOOP member")+'</b><p>'+escapeHtml(x.text||"")+'</p><small>Expires in 24 hours</small><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="action" data-story-like="'+escapeHtml(d.id)+'">♡ Like</button><button class="action secondary" data-open-story="'+escapeHtml(d.id)+'">Comment / View</button></div></div>';}).join(""):'<div class="social-item">No active stories yet.</div>';
+  target.innerHTML=active.length?active.map(d=>{const x=d.data();return '<div class="social-item"><b>'+escapeHtml(x.displayName||"MILOOP member")+'</b><p>'+escapeHtml(x.text||"")+'</p>'+mediaMarkup(x,"miloop-media")+'<small>Expires in 24 hours</small><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="action" data-story-like="'+escapeHtml(d.id)+'">♡ Like</button><button class="action secondary" data-open-story="'+escapeHtml(d.id)+'">Comment / View</button></div></div>';}).join(""):'<div class="social-item">No active stories yet.</div>';
   target.querySelectorAll("[data-open-story]").forEach(b=>b.onclick=()=>{const d=snap.docs.find(x=>x.id===b.dataset.openStory);if(d)openStoryDetails(d.id,d.data());});
   target.querySelectorAll("[data-story-like]").forEach(b=>b.onclick=async()=>{try{const ref=doc(db,"stories",b.dataset.storyLike,"likes",currentUser.uid),existing=await getDoc(ref);if(existing.exists()){await deleteDoc(ref);b.textContent="♡ Like";}else{await setDoc(ref,{uid:currentUser.uid,displayName:storyName(),createdAt:serverTimestamp()});b.textContent="♥ Liked";} }catch(e){console.error(e);toast("Like failed: "+(e.code||e.message));}});
  },e=>{console.error(e);$("storiesList").textContent="Could not load stories: "+(e.code||e.message);});
