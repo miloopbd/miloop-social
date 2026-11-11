@@ -60,3 +60,29 @@
  .reels-side-hint{display:none}.reels-dialog{max-height:90dvh}.reels-dialog form{padding:17px}
 }
 @media(prefers-reduced-motion:reduce){.reels-spinner{animation:none}.reels-toast{transition:none}}
+
+/* Creator insights and enhanced video controls */
+.reels-insights{border:1px solid #dce5f3;background:#f7f9fd;color:#31517f;border-radius:10px;padding:9px 13px;font:700 11px "DM Sans";cursor:pointer}
+.reel-view-count{display:grid;justify-items:center;gap:1px;color:#fff;font-size:18px;text-shadow:0 2px 8px #0008}
+.reel-view-count small{font:700 9px "DM Sans"}
+.reel-video-progress{position:absolute;z-index:3;left:12px;right:12px;bottom:9px;height:3px;background:#ffffff55;border-radius:9px;overflow:hidden;pointer-events:none}
+.reel-video-progress span{display:block;width:0;height:100%;background:#fff;border-radius:9px}
+.reel-play-toggle,.reel-fullscreen{position:absolute;z-index:4;border:1px solid #ffffff55;background:#11182788;color:#fff;border-radius:50%;width:42px;height:42px;display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(8px)}
+.reel-play-toggle{left:50%;top:50%;transform:translate(-50%,-50%);opacity:0;transition:opacity .2s}
+.reel-card:hover .reel-play-toggle,.reel-card:focus-within .reel-play-toggle{opacity:1}
+.reel-fullscreen{right:14px;top:60px;font-size:21px}
+.reels-analytics-dialog{padding:20px;display:none;flex-direction:column;gap:14px}
+.reels-analytics-dialog[open]{display:flex}
+.reel-analytics-content{overflow:auto;max-height:65dvh}
+.reel-analytics-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.reel-analytics-stats>div{background:#f2f6fd;border:1px solid #e5ecf7;border-radius:12px;padding:12px 9px;display:grid;gap:5px}
+.reel-analytics-stats small{font-size:9px;color:#71809a}
+.reel-analytics-stats b{font-size:20px;color:#173b75}
+.reel-analytics-title{font-size:13px;margin:18px 0 9px}
+.reel-analytics-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #edf0f5}
+.reel-analytics-row>span{width:24px;height:24px;display:grid;place-items:center;border-radius:8px;background:#edf3ff;color:#245dc4;font-size:10px;font-weight:800}
+.reel-analytics-row>div{flex:1;min-width:0;display:grid;gap:3px}
+.reel-analytics-row b{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reel-analytics-row small{font-size:9px;color:#8a96a9}
+.reel-analytics-row strong{font-size:10px;white-space:nowrap}
+@media(max-width:700px){.reels-insights{padding:8px 9px;font-size:10px}.reel-play-toggle{opacity:.85}.reel-fullscreen{right:10px;top:58px}}
