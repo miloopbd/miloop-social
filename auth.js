@@ -99,8 +99,13 @@ async function updateAccountUI(user) {
   }
 
   const initial = user ? displayName.charAt(0).toUpperCase() : "G";
+  window.miloopDisplayName = user ? displayName : "";
   $("profile").textContent = initial;
   document.querySelectorAll(".user-mini b").forEach(el => el.textContent = displayName);
+  const sidebarAvatar = $("sidebarAvatar");
+  if (sidebarAvatar) sidebarAvatar.textContent = initial;
+  const composerAvatar = $("composerAvatar");
+  if (composerAvatar) composerAvatar.textContent = initial;
   document.querySelectorAll(".compose-prompt").forEach(el => {
     el.textContent = user ? `What’s on your mind, ${displayName}?` : "Sign in to share with your loop";
   });
@@ -115,7 +120,7 @@ async function updateAccountUI(user) {
 
   const welcome = document.querySelector(".welcome h1");
   if (welcome) welcome.innerHTML = user
-    ? `Welcome back, ${escapeText(displayName)} <span>✦</span>`
+    ? `Good to see you, ${escapeText(displayName)} <span>✦</span>`
     : 'Welcome to MILOOP <span>✦</span>';
 }
 function escapeText(value) {
