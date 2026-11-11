@@ -586,7 +586,7 @@ service cloud.firestore {
         && request.resource.data.likes is list
         && request.resource.data.likes.size() == 0
         && request.resource.data.likeCount == 0
-        && request.resource.data.viewCount == 0
+        && (!('viewCount' in request.resource.data) || request.resource.data.viewCount == 0)
         && (!('background' in request.resource.data) || request.resource.data.background in ['plain','sunset','ocean','mint','lavender','rose','night'])
         && (!('feeling' in request.resource.data) || request.resource.data.feeling in ['','happy','excited','grateful','loved','motivated','thoughtful','celebrating'])
         && request.resource.data.createdAt == request.time);
