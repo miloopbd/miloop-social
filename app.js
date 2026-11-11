@@ -9,13 +9,16 @@ let selectedPostFiles=[];
 let currentUser = null, posts = [], regularPosts = [], groupPosts = [], stopPosts = null, stopGroups = null, groupPostStops = new Map(), stopComments = null, stopAnnouncements = null, activePostId = null, toastTimer;
 const postBackgrounds={plain:"linear-gradient(135deg,#f7f9fc,#edf2f8)",sunset:"linear-gradient(135deg,#ffedd5,#fecaca)",ocean:"linear-gradient(135deg,#dbeafe,#bfdbfe)",mint:"linear-gradient(135deg,#d1fae5,#a7f3d0)",lavender:"linear-gradient(135deg,#ede9fe,#ddd6fe)",rose:"linear-gradient(135deg,#ffe4e6,#fecdd3)",night:"linear-gradient(135deg,#334155,#0f172a)"};
 const postFeelings={happy:"😊 feeling happy",excited:"🤩 feeling excited",grateful:"🙏 feeling grateful",loved:"🥰 feeling loved",motivated:"💪 feeling motivated",thoughtful:"🤔 feeling thoughtful",celebrating:"🎉 celebrating"};
-const postStyle=document.createElement("style");postStyle.textContent=".post-avatar{overflow:hidden;flex-shrink:0}.post-avatar img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}.miloop-media{margin:10px 0;border-radius:13px;overflow:hidden;background:#f3f6fb}.miloop-media img{width:100%;height:auto;max-height:560px;object-fit:contain;cursor:zoom-in}.miloop-preview-wrap{position:relative;margin-top:8px}.miloop-upload-preview{display:block;max-width:100%;max-height:300px;margin:0 auto;border-radius:12px;object-fit:contain}.miloop-remove-media{display:block;margin:8px 0 0 auto;border:0;border-radius:8px;padding:9px 13px;background:#fee2e2;color:#b42318;font-weight:700;cursor:pointer}.miloop-media img,.miloop-media video{display:block;width:100%;max-height:560px;object-fit:contain;background:#101828}.post-content{border-radius:14px;padding:15px;margin:8px 0;min-height:42px;white-space:pre-wrap;overflow-wrap:anywhere}.post-content.night{color:#fff}.post-feeling{display:block;font-size:11px;color:#6b7890;margin:5px 0 8px}.post-content.night+.post-feeling{color:#64748b}.post-customize{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.post-customize label{font-size:11px;color:#64748b}.post-customize select{box-sizing:border-box;width:100%;margin-top:5px;padding:10px;border:1px solid #dce4ef;border-radius:9px;background:#fff;color:#17233d;font:12px inherit}@media(max-width:480px){.post-customize{grid-template-columns:1fr}}";document.head.append(postStyle);
+const postStyle=document.createElement("style");postStyle.textContent=".post-hashtag{display:inline;border:0;padding:0;background:transparent;color:#155eef;font:inherit;font-weight:750;cursor:pointer}.post-hashtag:hover{text-decoration:underline}.post-content.night .post-hashtag{color:#93c5fd}.post-avatar{overflow:hidden;flex-shrink:0}.post-avatar img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}.miloop-media{margin:10px 0;border-radius:13px;overflow:hidden;background:#f3f6fb}.miloop-media img{width:100%;height:auto;max-height:560px;object-fit:contain;cursor:zoom-in}.miloop-preview-wrap{position:relative;margin-top:8px}.miloop-upload-preview{display:block;max-width:100%;max-height:300px;margin:0 auto;border-radius:12px;object-fit:contain}.miloop-remove-media{display:block;margin:8px 0 0 auto;border:0;border-radius:8px;padding:9px 13px;background:#fee2e2;color:#b42318;font-weight:700;cursor:pointer}.miloop-media img,.miloop-media video{display:block;width:100%;max-height:560px;object-fit:contain;background:#101828}.post-content{border-radius:14px;padding:15px;margin:8px 0;min-height:42px;white-space:pre-wrap;overflow-wrap:anywhere}.post-content.night{color:#fff}.post-feeling{display:block;font-size:11px;color:#6b7890;margin:5px 0 8px}.post-content.night+.post-feeling{color:#64748b}.post-customize{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.post-customize label{font-size:11px;color:#64748b}.post-customize select{box-sizing:border-box;width:100%;margin-top:5px;padding:10px;border:1px solid #dce4ef;border-radius:9px;background:#fff;color:#17233d;font:12px inherit}@media(max-width:480px){.post-customize{grid-template-columns:1fr}}";document.head.append(postStyle);
 function toast(message) {
   const el = $("toast"); el.textContent = message; el.classList.add("show");
   clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 2500);
 }
 function safe(value) {
   return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function formatPostText(value){
+  return safe(value).replace(/(^|[^\p{L}\p{N}_])#([\p{L}\p{N}_]+)/gu,(match,prefix,tag)=>prefix+'<button type="button" class="post-hashtag" data-hashtag="'+tag+'">#'+tag+'</button>');
 }
 async function copyText(value){if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(value);return;}const field=document.createElement("textarea");field.value=value;field.style.position="fixed";field.style.opacity="0";document.body.append(field);field.select();const ok=document.execCommand("copy");field.remove();if(!ok)throw new Error("Copy unavailable");}
 function initials(name) { return String(name || "M").trim().split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase(); }
@@ -45,7 +48,7 @@ function render() {
           ${mine?'<button type="button" data-action="edit">✎ <span>Edit post</span></button><button type="button" class="danger" data-action="delete">🗑 <span>Delete post</span></button>':""}
         </div>
       </div></div>
-      <div class="post-content ${p.background==="night"?"night":""}" style="background:${postBackgrounds[p.background]||postBackgrounds.plain};color:${p.background==="night"?"#fff":"#26364d"}">${safe(p.text||"")}</div>${mediaMarkup(p)}${p.feeling&&postFeelings[p.feeling]?`<small class="post-feeling">${postFeelings[p.feeling]}</small>`:""}
+      <div class="post-content ${p.background==="night"?"night":""}" style="background:${postBackgrounds[p.background]||postBackgrounds.plain};color:${p.background==="night"?"#fff":"#26364d"}">${formatPostText(p.text||"")}</div>${mediaMarkup(p)}${p.feeling&&postFeelings[p.feeling]?`<small class="post-feeling">${postFeelings[p.feeling]}</small>`:""}
       <div class="stats"><button type="button" data-action="likers" aria-label="See who reacted">👍 ${Number(p.likeCount)||0} reactions · See who</button></div>
       <div class="post-actions">
         <div class="reaction-wrap">
@@ -404,6 +407,8 @@ $("posts").addEventListener("click",async e=>{
   const action=e.target.closest("[data-action]");
   const reactionButton=e.target.closest("[data-reaction]");
   try {
+    const hashtag=e.target.closest("[data-hashtag]");
+    if(hashtag){const tag="#"+hashtag.dataset.hashtag;$("search").value=tag;render();$("search").focus();window.scrollTo({top:0,behavior:"smooth"});return;}
     if(action?.dataset.action==="menu"){
       const menu=card.querySelector(".post-menu-list");const open=menu.hidden;
       document.querySelectorAll(".post-menu-list,.reaction-picker").forEach(x=>x.hidden=true);
