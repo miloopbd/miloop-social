@@ -250,7 +250,7 @@ async function openChat(otherUid,otherName){
         const seen=mine&&(m.seenBy||[]).includes(otherUid);
         const quote=m.replyToText?'<div class="reply-quote"><b>↩ Reply</b><span>'+escapeHtml(m.replyToText)+'</span></div>':"";
         const tools=(mine?'<button data-msg-action="edit" data-id="'+escapeHtml(d.id)+'">Edit</button><button data-msg-action="delete" data-id="'+escapeHtml(d.id)+'">Delete</button>':"")+'<button data-msg-action="reply" data-id="'+escapeHtml(d.id)+'">Reply</button><button data-msg-action="forward" data-id="'+escapeHtml(d.id)+'">Forward</button>';
-        return '<div class="'+(mine?"mine":"theirs")+'"><div class="bubble">'+quote+'<p>'+escapeHtml(m.text)+(m.forwarded?'<small>↪ Forwarded</small>':"")+'</p><small>'+time+(m.edited?" · Edited":"")+(mine?(seen?" · ✓✓ Seen":" · ✓ Sent"):"")+'</small><div class="msg-tools">'+tools+'</div></div></div>';
+        return '<div class="'+(mine?"mine":"theirs")+'"><div class="bubble"><small class="chat-sender-name">'+escapeHtml(m.displayName|| (mine?window.miloopDisplayName:otherName)||"MILOOP member")+'</small>'+quote+'<p>'+escapeHtml(m.text)+(m.forwarded?'<small>↪ Forwarded</small>':"")+'</p><small>'+time+(m.edited?" · Edited":"")+(mine?(seen?" · ✓✓ Seen":" · ✓ Sent"):"")+'</small><div class="msg-tools">'+tools+'</div></div></div>';
       }).join("");
       log.scrollTop=log.scrollHeight;
       snap.docs.forEach(d=>{const m=d.data();if(m.uid!==currentUser.uid&&!(m.seenBy||[]).includes(currentUser.uid)){updateDoc(doc(db,"chats",chatId,"messages",d.id),{seenBy:[...(m.seenBy||[]),currentUser.uid],seenAt:serverTimestamp()}).catch(e=>console.warn("Seen update failed:",e));}});
@@ -275,13 +275,13 @@ async function openChat(otherUid,otherName){
         try{await deleteDoc(doc(db,"chats",chatId,"messages",id));toast("Message deleted.");}catch(e){toast("Delete failed: "+(e.code||e.message));}
       }else if(action==="forward"){
         const target=window.prompt("Enter the recipient's Profile ID to forward this message");if(!target||!target.trim())return;
-        try{const forwardChat=await getOrCreateChat(target.trim());await addDoc(collection(db,"chats",forwardChat.chatId,"messages"),{uid:currentUser.uid,text:m.text,createdAt:serverTimestamp(),seenBy:[],forwarded:true});await updateDoc(forwardChat.chatRef,{updatedAt:serverTimestamp(),lastMessage:m.text.slice(0,120),lastMessageAt:serverTimestamp(),lastMessageUid:currentUser.uid});toast("Message forwarded.");}catch(e){toast("Forward failed: "+(e.code||e.message));}
+        try{const forwardChat=await getOrCreateChat(target.trim());await addDoc(collection(db,"chats",forwardChat.chatId,"messages"),{uid:currentUser.uid,displayName:window.miloopDisplayName||currentUser.displayName||"MILOOP member",text:m.text,createdAt:serverTimestamp(),seenBy:[],forwarded:true});await updateDoc(forwardChat.chatRef,{updatedAt:serverTimestamp(),lastMessage:m.text.slice(0,120),lastMessageAt:serverTimestamp(),lastMessageUid:currentUser.uid});toast("Message forwarded.");}catch(e){toast("Forward failed: "+(e.code||e.message));}
       }
     };
     $("chatSendForm").onsubmit=async e=>{
       e.preventDefault();const text=input.value.trim();if(!text)return;const send=e.submitter;if(send)send.disabled=true;
       try{
-        const payload={uid:currentUser.uid,text,createdAt:serverTimestamp(),seenBy:[]};
+        const profileSnap=await getDoc(doc(db,"publicProfiles",currentUser.uid));const displayName=(profileSnap.exists()?profileSnap.data().displayName:"")?.trim()||window.miloopDisplayName||currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member";window.miloopDisplayName=displayName;const payload={uid:currentUser.uid,displayName,text,createdAt:serverTimestamp(),seenBy:[]};
         if(replyTarget){payload.replyToUid=replyTarget.uid;payload.replyToText=replyTarget.text.slice(0,160);}
         await addDoc(messagesRef,payload);
         await updateDoc(chatRef,{updatedAt:serverTimestamp(),lastMessage:text.slice(0,120),lastMessageAt:serverTimestamp(),lastMessageUid:currentUser.uid});
