@@ -32,7 +32,7 @@ if (welcome && !document.getElementById("miloopDiscoverOpen")) {
   b.style.marginLeft = "8px";
   welcome.append(b);
 }
-const tabs = [["groups","Groups"],["memories","On This Day"],["verify","Verified Profile"],["tools","Community Tools"]];
+const tabs = [["groups","Groups"],["explore","Explore"],["saved","Saved"],["memories","On This Day"],["verify","Verified Profile"],["tools","Community Tools"]];
 function toast(msg){const el=$("toast");if(el){el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600);}}
 function open(tab="groups"){
   if(!user){$("authOpen")?.click();toast("Sign in to explore MILOOP.");return;}
@@ -44,6 +44,7 @@ function close(){panel.classList.remove("open");}
 $("mdClose").onclick=close;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")close();});
 $("miloopDiscoverOpen")?.addEventListener("click",()=>open());
+document.querySelector("[data-md-open]")?.addEventListener("click",()=>open("explore"));
 document.addEventListener("click",e=>{
  const tab=e.target.closest("[data-md-tab]");if(tab){open(tab.dataset.mdTab);return;}
  const hub=e.target.closest("[data-md-hub]");if(hub){const opener=document.querySelector("[data-hub-open]");if(opener)opener.click();setTimeout(()=>document.querySelector('[data-hub-tab="'+hub.dataset.mdHub+'"]')?.click(),80);}
@@ -53,11 +54,54 @@ async function render(tab){
  $("mdTabs").querySelectorAll("button").forEach(b=>b.classList.toggle("active",b.dataset.mdTab===tab));
  try{
   if(tab==="groups")await groups();
+  if(tab==="explore")await explore();
+  if(tab==="saved")await saved();
   if(tab==="memories")await memories();
   if(tab==="verify")await verification();
   if(tab==="tools")tools();
   if(tab==="reviews")await reviews();
  }catch(e){console.error("MILOOP Discover:",e);setContent('<div class="md-card">Could not load this section: '+esc(e.code||e.message||"Unknown error")+'.</div>');}
+}
+async function explore(){
+ setContent('<div class="md-card"><h3>Explore MILOOP</h3><p>Discover posts, ideas and members from your community.</p><div class="md-form"><input id="mdExploreSearch" placeholder="Search posts or people…"></div><div class="md-tabs"><button type="button" class="active" data-md-explore-type="posts">Posts</button><button type="button" data-md-explore-type="people">People</button></div></div><div id="mdExploreResults">Loading…</div>');
+ let type="posts",request=0;
+ async function load(){
+  const seq=++request,term=$("mdExploreSearch").value.trim().toLowerCase(),out=$("mdExploreResults");
+  out.innerHTML='<div class="md-empty">Loading…</div>';
+  try{
+   if(type==="posts"){
+    const snap=await getDocs(query(collection(db,"posts"),orderBy("createdAt","desc"),limit(80)));
+    const items=snap.docs.map(d=>({id:d.id,...d.data()})).filter(p=>((p.text||"")+" "+(p.authorName||"")).toLowerCase().includes(term));
+    items.sort((a,b)=>(Number(b.likeCount)||0)-(Number(a.likeCount)||0));
+    if(seq!==request)return;
+    out.innerHTML=items.length?items.slice(0,40).map(p=>'<article class="md-card"><b>'+esc(p.authorName||"MILOOP member")+'</b><p>'+esc(p.text||"[Media post]")+'</p>'+mediaMarkup(p,"miloop-media")+'<small class="md-muted">'+Number(p.likeCount||0)+' likes</small><div><button type="button" class="md-btn" data-md-jump="'+esc(p.id)+'">View post</button></div></article>').join(""):'<div class="md-empty">No matching posts found.</div>';
+   }else{
+    const snap=await getDocs(query(collection(db,"publicProfiles"),limit(100)));
+    const items=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(p=>p.uid!==user.uid&&((p.displayName||"")+" "+(p.bio||"")).toLowerCase().includes(term));
+    if(seq!==request)return;
+    out.innerHTML=items.length?items.slice(0,50).map(p=>'<article class="md-card"><b>'+esc(p.displayName||"MILOOP member")+'</b><p>'+esc(p.bio||"No bio yet.")+'</p><small class="md-muted">MILOOP member</small><div><button type="button" class="md-btn" data-profile-uid="'+esc(p.uid)+'">View profile</button></div></article>').join(""):'<div class="md-empty">No members found.</div>';
+   }
+  }catch(e){console.error("Discover Explore:",e);out.innerHTML='<div class="md-empty">Could not load Explore. '+esc(e.code||"Please try again.")+'</div>';}
+ }
+ $("mdExploreSearch").addEventListener("input",load);
+ $("mdTabs").querySelectorAll("[data-md-explore-type]").forEach(b=>b.addEventListener("click",()=>{type=b.dataset.mdExploreType;$("mdTabs").querySelectorAll("[data-md-explore-type]").forEach(x=>x.classList.toggle("active",x===b));load();}));
+ $("mdExploreResults").addEventListener("click",e=>{const b=e.target.closest("[data-md-jump]");if(!b)return;close();const card=document.querySelector('#posts [data-id="'+CSS.escape(b.dataset.mdJump)+'"]');card?.scrollIntoView({behavior:"smooth",block:"center"});if(card){card.style.outline="3px solid #155eef";setTimeout(()=>card.style.outline="",1800);}});
+ load();
+}
+async function saved(){
+ setContent('<div class="md-card"><h3>Saved Posts</h3><p>Only you can see the posts you save.</p></div><div id="mdSavedList">Loading saved posts…</div>');
+ const holder=$("mdSavedList");
+ try{
+  const marks=await getDocs(query(collection(db,"bookmarks",user.uid,"items"),orderBy("createdAt","desc"),limit(100)));
+  const items=await Promise.all(marks.docs.map(async d=>{const p=await getDoc(doc(db,"posts",d.id));return p.exists()?{id:d.id,...p.data()}:null;}));
+  const posts=items.filter(Boolean);
+  holder.innerHTML=posts.length?posts.map(p=>'<article class="md-card"><b>'+esc(p.authorName||"MILOOP member")+'</b><p>'+esc(p.text||"[Media post]")+'</p>'+mediaMarkup(p,"miloop-media")+'<div><button type="button" class="md-btn" data-md-jump="'+esc(p.id)+'">View post</button><button type="button" class="md-btn alt" data-md-unsave="'+esc(p.id)+'">Remove saved</button></div></article>').join(""):'<div class="md-empty">No saved posts yet. Save a post to find it here.</div>';
+  holder.addEventListener("click",async e=>{
+   const remove=e.target.closest("[data-md-unsave]"),jump=e.target.closest("[data-md-jump]");
+   if(remove){try{await deleteDoc(doc(db,"bookmarks",user.uid,"items",remove.dataset.mdUnsave));remove.closest(".md-card").remove();toast("Removed from Saved.");if(!holder.querySelector(".md-card"))holder.innerHTML='<div class="md-empty">No saved posts yet.</div>';}catch(err){toast("Could not remove saved post: "+(err.code||err.message));}}
+   if(jump){close();const card=document.querySelector('#posts [data-id="'+CSS.escape(jump.dataset.mdJump)+'"]');card?.scrollIntoView({behavior:"smooth",block:"center"});}
+  });
+ }catch(e){console.error("Discover Saved:",e);holder.innerHTML='<div class="md-empty">Could not load saved posts. '+esc(e.code||"Please try again.")+'</div>';}
 }
 async function groups(){
  setContent('<div class="md-card"><h3>Create a community group</h3><form id="mdGroupForm" class="md-form"><input id="mdGroupName" maxlength="50" placeholder="Group name" required><textarea id="mdGroupDescription" maxlength="240" placeholder="What is this group about?"></textarea><button class="md-btn">Create group</button></form></div><div id="mdGroupList">Loading groups…</div>');
