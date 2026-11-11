@@ -5,7 +5,7 @@ import { collection, addDoc, setDoc, onSnapshot, query, orderBy, serverTimestamp
 
 const $ = id => document.getElementById(id);
 const dialog = $("postDialog"), textarea = $("postText");
-let selectedPostFile=null;
+let selectedPostFiles=[];
 let currentUser = null, posts = [], regularPosts = [], groupPosts = [], stopPosts = null, stopGroups = null, groupPostStops = new Map(), stopComments = null, stopAnnouncements = null, activePostId = null, toastTimer;
 const postBackgrounds={plain:"linear-gradient(135deg,#f7f9fc,#edf2f8)",sunset:"linear-gradient(135deg,#ffedd5,#fecaca)",ocean:"linear-gradient(135deg,#dbeafe,#bfdbfe)",mint:"linear-gradient(135deg,#d1fae5,#a7f3d0)",lavender:"linear-gradient(135deg,#ede9fe,#ddd6fe)",rose:"linear-gradient(135deg,#ffe4e6,#fecdd3)",night:"linear-gradient(135deg,#334155,#0f172a)"};
 const postFeelings={happy:"😊 feeling happy",excited:"🤩 feeling excited",grateful:"🙏 feeling grateful",loved:"🥰 feeling loved",motivated:"💪 feeling motivated",thoughtful:"🤔 feeling thoughtful",celebrating:"🎉 celebrating"};
@@ -294,35 +294,51 @@ $("commentsList").addEventListener("submit",async e=>{
 
 function openPost() {
   if(!currentUser){$("authOpen").click();toast("Sign in before creating a post.");return;}
-  textarea.value=""; $("counter").textContent="0 / 1000"; $("postBackground").value="plain"; $("postFeeling").value=""; selectedPostFile=null;const picker=$("postMediaFile");if(picker)picker.value="";const preview=$("postMediaPreview");if(preview)preview.innerHTML="";dialog.showModal();textarea.focus();
+  textarea.value=""; $("counter").textContent="0 / 1000"; $("postBackground").value="plain"; $("postFeeling").value=""; clearPostMediaSelection();dialog.showModal();textarea.focus();
 }
 document.querySelectorAll("[data-open-post]").forEach(b=>b.addEventListener("click",openPost));
 $("closeDialog").addEventListener("click",()=>dialog.close());
 textarea.addEventListener("input",()=> $("counter").textContent=textarea.value.length+" / 1000");
 function clearPostMediaSelection(){
   const preview=$("postMediaPreview"),picker=$("postMediaFile");
-  if(preview){const oldUrl=preview.dataset.objectUrl;if(oldUrl)URL.revokeObjectURL(oldUrl);preview.dataset.objectUrl="";preview.innerHTML="";}
+  if(preview){preview.querySelectorAll("[data-object-url]").forEach(node=>URL.revokeObjectURL(node.dataset.objectUrl));preview.innerHTML="";}
   if(picker)picker.value="";
-  selectedPostFile=null;
+  selectedPostFiles=[];
 }
 $("postMediaFile")?.addEventListener("change",()=>{
-  clearPostMediaSelection();
-  selectedPostFile=$("postMediaFile").files?.[0]||null;
-  const preview=$("postMediaPreview");if(!preview||!selectedPostFile)return;
-  const objectUrl=URL.createObjectURL(selectedPostFile);preview.dataset.objectUrl=objectUrl;
-  const wrap=document.createElement("div");wrap.className="miloop-preview-wrap";
-  const node=document.createElement(selectedPostFile.type.startsWith("video/")?"video":"img");node.src=objectUrl;
-  if(node.tagName==="VIDEO"){node.controls=true;node.playsInline=true;}
-  node.className="miloop-upload-preview";node.alt="Selected media preview";wrap.append(node);
-  const remove=document.createElement("button");remove.type="button";remove.className="miloop-remove-media";remove.textContent="Remove photo";
-  remove.addEventListener("click",clearPostMediaSelection);wrap.append(remove);preview.append(wrap);
+  const picker=$("postMediaFile"),preview=$("postMediaPreview");
+  if(!picker||!preview)return;
+  preview.querySelectorAll("[data-object-url]").forEach(node=>URL.revokeObjectURL(node.dataset.objectUrl));
+  preview.innerHTML="";
+  selectedPostFiles=Array.from(picker.files||[]);
+  selectedPostFiles.forEach((file,index)=>{
+    const objectUrl=URL.createObjectURL(file);
+    const wrap=document.createElement("div");wrap.className="miloop-preview-wrap";wrap.dataset.objectUrl=objectUrl;
+    const node=document.createElement(file.type.startsWith("video/")?"video":"img");node.src=objectUrl;
+    if(node.tagName==="VIDEO"){node.controls=true;node.playsInline=true;}
+    node.className="miloop-upload-preview";node.alt="Selected media preview";wrap.append(node);
+    const remove=document.createElement("button");remove.type="button";remove.className="miloop-remove-media";remove.textContent="Remove";
+    remove.addEventListener("click",()=>{
+      URL.revokeObjectURL(objectUrl);selectedPostFiles.splice(index,1);wrap.remove();
+      const transfer=new DataTransfer();selectedPostFiles.forEach(f=>transfer.items.add(f));picker.files=transfer.files;
+    });
+    wrap.append(remove);preview.append(wrap);
+  });
 });
 $("postForm").addEventListener("submit",async e=>{
- e.preventDefault();if(!currentUser){toast("Please sign in first.");return;}const text=textarea.value.trim();if(!text&&!selectedPostFile){toast("Write something or attach a photo/video.");return;}
+ e.preventDefault();if(!currentUser){toast("Please sign in first.");return;}const text=textarea.value.trim();if(!text&&!selectedPostFiles.length){toast("Write something or attach a photo/video.");return;}
  const button=e.submitter;if(button)button.disabled=true;
- try{let media={};if(selectedPostFile){if(button)button.textContent="Uploading media…";media=await uploadMedia(selectedPostFile);}if(button)button.textContent="Publishing…";
- const profileSnap=await getDoc(doc(db,"publicProfiles",currentUser.uid));const savedDisplayName=profileSnap.exists()?(profileSnap.data().displayName||""):"";const authorName=savedDisplayName.trim()||window.miloopDisplayName||currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member";window.miloopDisplayName=authorName;await addDoc(collection(db,"posts"),{authorUid:currentUser.uid,authorName,text,background:$("postBackground").value,feeling:$("postFeeling").value,...(media.url?{mediaUrl:media.url,mediaType:media.type,mediaPath:media.publicId}:{}),createdAt:serverTimestamp(),likes:[],likeCount:0});
- dialog.close();selectedPostFile=null;toast("Your post is now in your loop!");
+ try{
+  const mediaItems=[];
+  for(let i=0;i<selectedPostFiles.length;i++){
+   if(button)button.textContent="Uploading "+(i+1)+" of "+selectedPostFiles.length+"…";
+   const uploaded=await uploadMedia(selectedPostFiles[i]);
+   mediaItems.push({url:uploaded.url,type:uploaded.type,publicId:uploaded.publicId});
+  }
+  if(button)button.textContent="Publishing…";
+  const profileSnap=await getDoc(doc(db,"publicProfiles",currentUser.uid));const savedDisplayName=profileSnap.exists()?(profileSnap.data().displayName||""):"";const authorName=savedDisplayName.trim()||window.miloopDisplayName||currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member";window.miloopDisplayName=authorName;
+  await addDoc(collection(db,"posts"),{authorUid:currentUser.uid,authorName,text,background:$("postBackground").value,feeling:$("postFeeling").value,...(mediaItems.length?{mediaItems}:{}),createdAt:serverTimestamp(),likes:[],likeCount:0});
+  dialog.close();clearPostMediaSelection();toast("Your post is now in your loop!");
  }catch(error){console.error("MILOOP post publish error:",error);toast("Post failed: "+(error.message||error.code||"unknown error"));}
  finally{if(button){button.disabled=false;button.textContent="Publish post";}}
 });
