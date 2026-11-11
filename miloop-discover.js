@@ -84,7 +84,7 @@ async function explore(){
   }catch(e){console.error("Discover Explore:",e);out.innerHTML='<div class="md-empty">Could not load Explore. '+esc(e.code||"Please try again.")+'</div>';}
  }
  $("mdExploreSearch").addEventListener("input",load);
- $("mdTabs").querySelectorAll("[data-md-explore-type]").forEach(b=>b.addEventListener("click",()=>{type=b.dataset.mdExploreType;$("mdTabs").querySelectorAll("[data-md-explore-type]").forEach(x=>x.classList.toggle("active",x===b));load();}));
+ $("mdContent").querySelectorAll("[data-md-explore-type]").forEach(b=>b.addEventListener("click",()=>{type=b.dataset.mdExploreType;$("mdTabs").querySelectorAll("[data-md-explore-type]").forEach(x=>x.classList.toggle("active",x===b));load();}));
  $("mdExploreResults").addEventListener("click",e=>{const b=e.target.closest("[data-md-jump]");if(!b)return;close();const card=document.querySelector('#posts [data-id="'+CSS.escape(b.dataset.mdJump)+'"]');card?.scrollIntoView({behavior:"smooth",block:"center"});if(card){card.style.outline="3px solid #155eef";setTimeout(()=>card.style.outline="",1800);}});
  load();
 }
