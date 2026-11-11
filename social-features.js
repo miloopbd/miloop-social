@@ -420,7 +420,9 @@ handlers.allStories=()=>{
 handlers.explore=()=>{
   openPanel("Explore",'<p>Discover what is happening in your MILOOP community.</p><div class="social-item"><b>#MILOOPLaunch</b><small>Community updates</small></div><div class="social-item"><b>#CreativeMinds</b><small>Ideas and creativity</small></div><div class="social-item"><b>#DailyInspiration</b><small>Positive moments</small></div><div class="social-item"><b>#TechAndIdeas</b><small>Technology and learning</small></div>');
 };
-handlers.photo=handlers.video=handlers.feeling=()=>toast("This feature is not available yet.");
+handlers.photo=()=>{if(!currentUser){document.querySelector("[data-open-post]")?.click();return;}document.querySelector("[data-open-post]")?.click();document.getElementById("postMediaFile")?.click();};
+handlers.video=()=>{if(!currentUser){document.querySelector("[data-open-post]")?.click();return;}document.querySelector("[data-open-post]")?.click();const picker=document.getElementById("postMediaFile");if(picker){picker.accept="video/mp4,video/webm,video/quicktime";picker.click();}};
+handlers.feeling=()=>{document.querySelector("[data-open-post]")?.click();document.getElementById("postFeeling")?.focus();};
 
 handlers.follow=()=>{
   openPanel("Find and follow members",'<p>Enter a member Profile ID to look up their public profile.</p><input id="memberProfileId" placeholder="Member Profile ID" autocomplete="off"><button class="action" id="lookupMember">Find member</button><div id="memberResult"></div>');
