@@ -572,7 +572,7 @@ service cloud.firestore {
         && request.resource.data.sponsorRequestId is string
         && request.resource.data.createdAt == request.time
       ) || (activeMember()
-        && request.resource.data.keys().hasOnly(['authorUid','authorName','text','mediaUrl','mediaType','mediaPath','createdAt','likes','likeCount','background','feeling'])
+        && request.resource.data.keys().hasOnly(['authorUid','authorName','text','mediaUrl','mediaType','mediaPath','createdAt','likes','likeCount','background','feeling','viewCount'])
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorName is string
         && request.resource.data.authorName.size() > 0
@@ -586,6 +586,7 @@ service cloud.firestore {
         && request.resource.data.likes is list
         && request.resource.data.likes.size() == 0
         && request.resource.data.likeCount == 0
+        && request.resource.data.viewCount == 0
         && (!('background' in request.resource.data) || request.resource.data.background in ['plain','sunset','ocean','mint','lavender','rose','night'])
         && (!('feeling' in request.resource.data) || request.resource.data.feeling in ['','happy','excited','grateful','loved','motivated','thoughtful','celebrating'])
         && request.resource.data.createdAt == request.time);
@@ -617,6 +618,13 @@ service cloud.firestore {
             && resource.data.likes.hasAny([request.auth.uid])
             && !request.resource.data.likes.hasAny([request.auth.uid]))
         )
+      ) || (
+        activeMember()
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount'])
+        && request.resource.data.viewCount is int
+        && request.resource.data.viewCount == resource.data.get('viewCount', 0) + 1
+        && existsAfter(/databases/$(database)/documents/posts/$(postId)/views/$(request.auth.uid))
       );
 
       allow delete: if isAdmin() || (activeMember()
