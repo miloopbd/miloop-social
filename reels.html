@@ -18,6 +18,7 @@
   <div class="reels-heading"><b>Reels</b><small>Moments from your loop</small></div>
   <div class="reels-top-actions">
     <a class="reels-home-link" href="index.html">Home</a>
+    <button id="openCreatorAnalytics" class="reels-insights" type="button">Insights</button>
     <button id="openReelUpload" class="reels-create" type="button">＋ Create</button>
   </div>
 </header>
@@ -45,6 +46,10 @@
   <div class="reels-dialog-head"><div><small>COMMUNITY CONVERSATION</small><h2>Comments</h2></div><button type="button" class="reels-close" id="closeReelComments" aria-label="Close">×</button></div>
   <div id="reelCommentsList" class="reels-comments-list"></div>
   <form id="reelCommentForm" class="reels-comment-form"><input id="reelCommentInput" maxlength="500" placeholder="Write a comment…" required><button type="submit">Send</button></form>
+</dialog>
+<dialog id="reelAnalyticsDialog" class="reels-dialog reels-analytics-dialog">
+  <div class="reels-dialog-head"><div><small>YOUR CREATOR DASHBOARD</small><h2>Creator Analytics</h2></div><button type="button" class="reels-close" id="closeReelAnalytics" aria-label="Close">×</button></div>
+  <div id="reelAnalyticsContent" class="reel-analytics-content"></div>
 </dialog>
 <div id="reelsToast" class="reels-toast" role="status"></div>
 <script type="module" src="reels.js?v=20261111-1"></script>
