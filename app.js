@@ -1,13 +1,15 @@
 import { auth, db } from "./firebase.js";
+import { uploadMedia, mediaMarkup } from "./cloudinary.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { collection, addDoc, setDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, arrayUnion, arrayRemove, deleteDoc, getDoc, getDocs, limit } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
 const dialog = $("postDialog"), textarea = $("postText");
+let selectedPostFile=null;
 let currentUser = null, posts = [], regularPosts = [], groupPosts = [], stopPosts = null, stopGroups = null, groupPostStops = new Map(), stopComments = null, stopAnnouncements = null, activePostId = null, toastTimer;
 const postBackgrounds={plain:"linear-gradient(135deg,#f7f9fc,#edf2f8)",sunset:"linear-gradient(135deg,#ffedd5,#fecaca)",ocean:"linear-gradient(135deg,#dbeafe,#bfdbfe)",mint:"linear-gradient(135deg,#d1fae5,#a7f3d0)",lavender:"linear-gradient(135deg,#ede9fe,#ddd6fe)",rose:"linear-gradient(135deg,#ffe4e6,#fecdd3)",night:"linear-gradient(135deg,#334155,#0f172a)"};
 const postFeelings={happy:"😊 feeling happy",excited:"🤩 feeling excited",grateful:"🙏 feeling grateful",loved:"🥰 feeling loved",motivated:"💪 feeling motivated",thoughtful:"🤔 feeling thoughtful",celebrating:"🎉 celebrating"};
-const postStyle=document.createElement("style");postStyle.textContent=".post-content{border-radius:14px;padding:15px;margin:8px 0;min-height:42px;white-space:pre-wrap;overflow-wrap:anywhere}.post-content.night{color:#fff}.post-feeling{display:block;font-size:11px;color:#6b7890;margin:5px 0 8px}.post-content.night+.post-feeling{color:#64748b}.post-customize{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.post-customize label{font-size:11px;color:#64748b}.post-customize select{box-sizing:border-box;width:100%;margin-top:5px;padding:10px;border:1px solid #dce4ef;border-radius:9px;background:#fff;color:#17233d;font:12px inherit}@media(max-width:480px){.post-customize{grid-template-columns:1fr}}";document.head.append(postStyle);
+const postStyle=document.createElement("style");postStyle.textContent=".miloop-media{margin:10px 0;border-radius:13px;overflow:hidden;background:#f3f6fb}.miloop-media img,.miloop-media video{display:block;width:100%;max-height:560px;object-fit:contain;background:#101828}.post-content{border-radius:14px;padding:15px;margin:8px 0;min-height:42px;white-space:pre-wrap;overflow-wrap:anywhere}.post-content.night{color:#fff}.post-feeling{display:block;font-size:11px;color:#6b7890;margin:5px 0 8px}.post-content.night+.post-feeling{color:#64748b}.post-customize{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.post-customize label{font-size:11px;color:#64748b}.post-customize select{box-sizing:border-box;width:100%;margin-top:5px;padding:10px;border:1px solid #dce4ef;border-radius:9px;background:#fff;color:#17233d;font:12px inherit}@media(max-width:480px){.post-customize{grid-template-columns:1fr}}";document.head.append(postStyle);
 function toast(message) {
   const el = $("toast"); el.textContent = message; el.classList.add("show");
   clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 2500);
@@ -43,7 +45,7 @@ function render() {
           ${mine?'<button type="button" data-action="edit">✎ <span>Edit post</span></button><button type="button" class="danger" data-action="delete">🗑 <span>Delete post</span></button>':""}
         </div>
       </div></div>
-      <div class="post-content ${p.background==="night"?"night":""}" style="background:${postBackgrounds[p.background]||postBackgrounds.plain};color:${p.background==="night"?"#fff":"#26364d"}">${safe(p.text)}</div>${p.feeling&&postFeelings[p.feeling]?`<small class="post-feeling">${postFeelings[p.feeling]}</small>`:""}
+      <div class="post-content ${p.background==="night"?"night":""}" style="background:${postBackgrounds[p.background]||postBackgrounds.plain};color:${p.background==="night"?"#fff":"#26364d"}">${safe(p.text||"")}</div>${mediaMarkup(p)}${p.feeling&&postFeelings[p.feeling]?`<small class="post-feeling">${postFeelings[p.feeling]}</small>`:""}
       <div class="stats"><button type="button" data-action="likers" aria-label="See who reacted">👍 ${Number(p.likeCount)||0} reactions · See who</button></div>
       <div class="post-actions">
         <div class="reaction-wrap">
@@ -292,21 +294,20 @@ $("commentsList").addEventListener("submit",async e=>{
 
 function openPost() {
   if(!currentUser){$("authOpen").click();toast("Sign in before creating a post.");return;}
-  textarea.value=""; $("counter").textContent="0 / 1000"; $("postBackground").value="plain"; $("postFeeling").value=""; dialog.showModal(); textarea.focus();
+  textarea.value=""; $("counter").textContent="0 / 1000"; $("postBackground").value="plain"; $("postFeeling").value=""; selectedPostFile=null;const picker=$("postMediaFile");if(picker)picker.value="";const preview=$("postMediaPreview");if(preview)preview.innerHTML="";dialog.showModal();textarea.focus();
 }
 document.querySelectorAll("[data-open-post]").forEach(b=>b.addEventListener("click",openPost));
 $("closeDialog").addEventListener("click",()=>dialog.close());
 textarea.addEventListener("input",()=> $("counter").textContent=textarea.value.length+" / 1000");
+$("postMediaFile")?.addEventListener("change",()=>{selectedPostFile=$("postMediaFile").files?.[0]||null;const preview=$("postMediaPreview");if(!preview)return;preview.innerHTML="";if(selectedPostFile){const node=document.createElement(selectedPostFile.type.startsWith("video/")?"video":"img");node.src=URL.createObjectURL(selectedPostFile);if(node.tagName==="VIDEO"){node.controls=true;node.playsInline=true;}node.className="miloop-upload-preview";node.alt="Selected media preview";preview.append(node);}});
 $("postForm").addEventListener("submit",async e=>{
-  e.preventDefault();
-  if(!currentUser){toast("Please sign in first.");return;}
-  const text=textarea.value.trim(); if(!text){toast("Write something before publishing.");return;}
-  const button=e.submitter; if(button)button.disabled=true;
-  try {
-    await addDoc(collection(db,"posts"),{authorUid:currentUser.uid,authorName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",text,background:$("postBackground").value,feeling:$("postFeeling").value,createdAt:serverTimestamp(),likes:[],likeCount:0});
-    dialog.close(); toast("Your post is now in your loop!");
-  } catch(error){console.error("MILOOP post publish error:",error);toast("Post failed: "+(error.code||error.message||"unknown error"));}
-  finally{if(button)button.disabled=false;}
+ e.preventDefault();if(!currentUser){toast("Please sign in first.");return;}const text=textarea.value.trim();if(!text&&!selectedPostFile){toast("Write something or attach a photo/video.");return;}
+ const button=e.submitter;if(button)button.disabled=true;
+ try{let media={};if(selectedPostFile){if(button)button.textContent="Uploading media…";media=await uploadMedia(selectedPostFile);}if(button)button.textContent="Publishing…";
+ await addDoc(collection(db,"posts"),{authorUid:currentUser.uid,authorName:currentUser.displayName||currentUser.email?.split("@")[0]||"MILOOP member",text,background:$("postBackground").value,feeling:$("postFeeling").value,...(media.url?{mediaUrl:media.url,mediaType:media.type,mediaPath:media.publicId}:{}),createdAt:serverTimestamp(),likes:[],likeCount:0});
+ dialog.close();selectedPostFile=null;toast("Your post is now in your loop!");
+ }catch(error){console.error("MILOOP post publish error:",error);toast("Post failed: "+(error.message||error.code||"unknown error"));}
+ finally{if(button){button.disabled=false;button.textContent="Publish post";}}
 });
 let searchProfilesCache=null,searchRequest=0;
 const searchBox=$("search"),searchResults=$("searchResults");
