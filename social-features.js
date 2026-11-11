@@ -40,7 +40,8 @@ styles.textContent = `
 .chat-presence{display:block;margin-top:4px;font-size:10px;color:#8491a6}.chat-presence.online{color:#0b9b68}.typing-status{min-height:17px;font-size:10px;color:#155eef;padding:0 4px}.reply-preview{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#eef4ff;border-left:3px solid #155eef;padding:8px 10px;border-radius:8px;margin:7px 0}.reply-preview[hidden]{display:none}.reply-preview span{min-width:0}.reply-preview b,.reply-preview small{display:block;font-size:10px;color:#40516e}.reply-preview small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;margin-top:3px}.reply-preview button{border:0;background:transparent;font-size:18px;color:#75829a}.reply-quote{border-left:2px solid #155eef;background:#f1f5fd;padding:6px 8px;border-radius:5px;margin-bottom:6px}.reply-quote b,.reply-quote span{display:block;font-size:9px;color:#53617a}.reply-quote span{margin-top:3px;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:700px){.social-panel{top:68px;right:8px;width:calc(100vw - 16px);max-height:82vh;padding:14px}.social-chat-log{height:42vh}}
 `;
-styles.textContent += ".profile-upload-field{border:1px solid #e2e8f2;border-radius:10px;padding:10px;margin:10px 0}.profile-upload-field>b{display:block;font-size:12px;color:#243653;margin-bottom:5px}.profile-upload-field small{display:block;font-size:10px;color:#7d899d;overflow-wrap:anywhere}";\ndocument.head.append(styles);
+styles.textContent += ".profile-upload-field{border:1px solid #e2e8f2;border-radius:10px;padding:10px;margin:10px 0}.profile-upload-field>b{display:block;font-size:12px;color:#243653;margin-bottom:5px}.profile-upload-field small{display:block;font-size:10px;color:#7d899d;overflow-wrap:anywhere}";
+document.head.append(styles);
 
 function toast(message){
   const el=$("toast");
