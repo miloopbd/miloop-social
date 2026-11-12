@@ -55,7 +55,7 @@ function watchIncoming(){
  if(incomingUnsub)incomingUnsub();if(!user)return;
  incomingUnsub=onSnapshot(query(collection(db,"calls"),where("calleeUid","==",user.uid),where("status","==","ringing"),limit(1)),snap=>{
   const d=snap.docs.find(x=>x.data().offer);if(!d||currentRef)return;
-  const data=d.data();window.pendingMiloopCall={ref:d.ref,data};
+  const data=d.data();window.MILOOPChat?.open?.();window.pendingMiloopCall={ref:d.ref,data};
   callType=data.callType;show(callType,"Incoming "+callType+" call");$("chatCallAccept").hidden=false;$("chatCallDecline").hidden=false;$("chatCallEnd").hidden=true;
  });
 }
