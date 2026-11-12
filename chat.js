@@ -13,7 +13,7 @@ function displayName(p){return p.displayName||p.name||"MILOOP member";}
 function chatName(c){if(c.isGroup)return c.groupName||"Group chat";const other=(c.members||[]).find(x=>x!==user.uid);return c.memberNames?.[other]||"MILOOP member";}
 function stop(ref){if(ref)ref();}
 function openDialog(){if(!user){$("authOpen")?.click();notify("Sign in to use Messages.");return;}dialog.showModal();loadChats();}
-document.querySelectorAll('a[href="#messages"],[data-social-action="messages"]').forEach(el=>el.addEventListener("click",e=>{e.preventDefault();openDialog();}));
+document.addEventListener("miloop:open-messages",openDialog);
 $("chatClose").addEventListener("click",()=>dialog.close());
 $("chatBack").addEventListener("click",()=>{dialog.classList.remove("chat-has-active");$("chatActive").hidden=true;$("chatWelcome").hidden=false;activeChat=null;stop(stopMessages);stop(stopPresence);stop(stopTyping);});
 function loadChats(){stop(stopChats);stopChats=onSnapshot(query(collection(db,"chats"),where("members","array-contains",user.uid)),snap=>{chats=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.updatedAt?.toMillis?.()||0)-(a.updatedAt?.toMillis?.()||0));renderChats();},err=>notify("Could not load conversations: "+err.message));}
