@@ -125,7 +125,7 @@ service cloud.firestore {
         && request.resource.data.text.size() <= 240
         && (request.resource.data.text.size() > 0 || ('mediaUrl' in request.resource.data))
         && (!('mediaUrl' in request.resource.data) || (request.resource.data.mediaUrl is string && request.resource.data.mediaUrl.matches('https://res\\.cloudinary\\.com/.*')))
-        && (!('mediaType' in request.resource.data) || request.resource.data.mediaType in ['image','video'])
+        && (!('mediaType' in request.resource.data) || request.resource.data.mediaType in ['image','video','audio','document'])
         && (!('mediaPath' in request.resource.data) || request.resource.data.mediaPath is string)
         && request.resource.data.expiresAt is timestamp
         && request.resource.data.expiresAt > request.time
@@ -198,7 +198,8 @@ service cloud.firestore {
             && getAfter(/databases/$(database)/documents/chats/$(chatId)/invites/$(request.resource.data.lastJoinInviteId)).data.uses
               == get(/databases/$(database)/documents/chats/$(chatId)/invites/$(request.resource.data.lastJoinInviteId)).data.uses + 1))
         && (
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt','lastMessage','lastMessageAt','lastMessageUid','unreadCounts'])
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt','lastMessage','lastMessageAt','lastMessageUid','unreadCounts','messageExpiryHours'])
+            && (!('messageExpiryHours' in request.resource.data) || request.resource.data.messageExpiryHours in [0,24,168]))
           || (resource.data.isGroup == true
             && (resource.data.createdBy == request.auth.uid || ('groupAdmins' in resource.data && resource.data.groupAdmins.hasAny([request.auth.uid])))
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt','groupName','description','photoUrl']))
@@ -297,7 +298,13 @@ service cloud.firestore {
           && request.resource.data.seenBy.size() == 0
           && (!('replyToUid' in request.resource.data) || request.resource.data.replyToUid is string)
           && (!('replyToText' in request.resource.data) || (request.resource.data.replyToText is string && request.resource.data.replyToText.size() <= 160))
-          && (!('forwarded' in request.resource.data) || request.resource.data.forwarded == true);
+          && (!('forwarded' in request.resource.data) || request.resource.data.forwarded == true)
+          && (!('fileName' in request.resource.data) || (request.resource.data.fileName is string && request.resource.data.fileName.size() <= 180))
+          && (!('fileSize' in request.resource.data) || (request.resource.data.fileSize is int && request.resource.data.fileSize <= 20971520))
+          && (!('fileMime' in request.resource.data) || request.resource.data.fileMime is string)
+          && (!('kind' in request.resource.data) || request.resource.data.kind == 'poll')
+          && (!('pollOptions' in request.resource.data) || (request.resource.data.pollOptions is list && request.resource.data.pollOptions.size() >= 2 && request.resource.data.pollOptions.size() <= 4))
+          && (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp);
         allow update: if (isChatMember(chatId)
           && resource.data.uid == request.auth.uid
           && request.resource.data.uid == resource.data.uid
@@ -314,6 +321,18 @@ service cloud.firestore {
             && request.resource.data.seenBy.hasAny([request.auth.uid])
             && request.resource.data.seenAt == request.time);
         allow delete: if isChatMember(chatId) && resource.data.uid == request.auth.uid;
+
+        match /pollVotes/{voterUid} {
+          allow read: if isChatMember(chatId);
+          allow create: if isChatMember(chatId) && request.auth.uid == voterUid
+            && get(/databases/$(database)/documents/chats/$(chatId)/messages/$(messageId)).data.kind == 'poll'
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.option is int
+            && request.resource.data.option >= 0
+            && request.resource.data.option < get(/databases/$(database)/documents/chats/$(chatId)/messages/$(messageId)).data.pollOptions.size()
+            && request.resource.data.createdAt == request.time;
+          allow update, delete: if false;
+        }
 
         match /reactions/{memberUid} {
           allow read: if isChatMember(chatId);
