@@ -375,11 +375,14 @@ service cloud.firestore {
       allow update: if activeMember()
         && (resource.data.callerUid == request.auth.uid || resource.data.calleeUid == request.auth.uid)
         && (
-          (request.auth.uid == resource.data.calleeUid
+          ((request.auth.uid == resource.data.calleeUid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer','status','updatedAt'])
             && request.resource.data.answer.type == 'answer'
             && request.resource.data.answer.sdp is string
-            && request.resource.data.status in ['accepted','declined'])
+            && request.resource.data.status == 'accepted')
+          || (request.auth.uid == resource.data.calleeUid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
+            && request.resource.data.status == 'declined'))
           || (request.auth.uid == resource.data.callerUid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
             && request.resource.data.status == 'ended')
