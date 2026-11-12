@@ -292,7 +292,7 @@ service cloud.firestore {
           && request.resource.data.text.size() <= 1000
           && (request.resource.data.text.size() > 0 || ('mediaUrl' in request.resource.data))
           && (!('mediaUrl' in request.resource.data) || (request.resource.data.mediaUrl is string && request.resource.data.mediaUrl.matches('https://res\\.cloudinary\\.com/.*')))
-          && (!('mediaType' in request.resource.data) || request.resource.data.mediaType in ['image','video'])
+          && (!('mediaType' in request.resource.data) || request.resource.data.mediaType in ['image','video','audio','document'])
           && request.resource.data.createdAt == request.time
           && request.resource.data.seenBy is list
           && request.resource.data.seenBy.size() == 0
