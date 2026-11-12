@@ -30,7 +30,7 @@ export function mediaMarkup(post,className="miloop-media"){
 
 export async function uploadChatFile(file) {
   if (!(file instanceof File)) throw new Error("Choose a file first.");
-  const isAudio=/^audio\/(webm|ogg|mpeg|mp4|wav|aac)$/i.test(file.type);
+  const isAudio=/^audio\/(webm|ogg|mpeg|mp4|wav|aac)(;|$)/i.test(file.type);
   const isDocument=/^(application\/pdf|application\/vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|spreadsheetml\.sheet|presentationml\.presentation)|text\/plain)$/i.test(file.type);
   if(!isAudio&&!isDocument)throw new Error("Supported: voice notes, PDF, DOCX, XLSX, PPTX and TXT.");
   if(file.size>20*1024*1024)throw new Error("File must be 20 MB or smaller.");
