@@ -2,12 +2,12 @@ import {auth,db} from "./firebase.js";
 import {onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {collection,doc,setDoc,updateDoc,addDoc,onSnapshot,query,where,limit,serverTimestamp} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 const $=id=>document.getElementById(id);
-let user=null,pc=null,localStream=null,remoteStream=null,currentRef=null,callType=null,role=null,callUnsub=null,incomingUnsub=null,candidateUnsubs=[];
+let user=null,pc=null,localStream=null,remoteStream=null,currentRef=null,callType=null,role=null,callUnsub=null,incomingUnsub=null,candidateUnsubs=[],callDocReady=false,pendingCallerCandidates=[];
 const panel=$("chatCallPanel"),voice=$("chatVoiceCall"),video=$("chatVideoCall");
 function note(t){window.MILOOPChat?.notify?.(t)||alert(t);}
 function chat(){return window.MILOOPChat?.getActiveChat?.();}
 function clearSubs(){if(callUnsub)callUnsub();callUnsub=null;candidateUnsubs.forEach(x=>x());candidateUnsubs=[];}
-function cleanup(){clearSubs();if(pc){pc.ontrack=null;pc.onicecandidate=null;pc.close();pc=null;}if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}remoteStream=null;$("chatRemoteVideo").srcObject=null;$("chatLocalVideo").srcObject=null;$("chatRemoteAudio").srcObject=null;currentRef=null;callType=null;role=null;$("chatCallPanel").hidden=true;}
+function cleanup(){callDocReady=false;pendingCallerCandidates=[];clearSubs();if(pc){pc.ontrack=null;pc.onicecandidate=null;pc.close();pc=null;}if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}remoteStream=null;$("chatRemoteVideo").srcObject=null;$("chatLocalVideo").srcObject=null;$("chatRemoteAudio").srcObject=null;currentRef=null;callType=null;role=null;$("chatCallPanel").hidden=true;}
 function show(type,status){panel.hidden=false;$("chatCallTitle").textContent=type==="video"?"Video call":"Audio call";$("chatCallStatus").textContent=status;$("chatRemoteVideo").hidden=type!=="video";$("chatLocalVideo").hidden=type!=="video";$("chatRemoteAudio").hidden=type==="video";$("chatCallAccept").hidden=true;$("chatCallDecline").hidden=true;$("chatCallEnd").hidden=false;}
 async function startCall(type){
  const c=chat();if(!user||!c||c.isGroup){note("One-to-one calls are available in personal chats only.");return;}
@@ -19,10 +19,11 @@ async function startCall(type){
   remoteStream=new MediaStream();$("chatRemoteVideo").srcObject=remoteStream;$("chatRemoteAudio").srcObject=remoteStream;$("chatLocalVideo").srcObject=localStream;
   localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
   pc.ontrack=e=>e.streams[0].getTracks().forEach(t=>remoteStream.addTrack(t));
-  pc.onicecandidate=async e=>{if(e.candidate&&currentRef)try{await addDoc(collection(db,"calls",currentRef.id,"callerCandidates"),e.candidate.toJSON());}catch(err){console.warn(err);}};
+  pc.onicecandidate=async e=>{if(!e.candidate)return;const item=e.candidate.toJSON();if(!callDocReady){pendingCallerCandidates.push(item);return;}try{await addDoc(collection(db,"calls",currentRef.id,"callerCandidates"),item);}catch(err){console.warn(err);}};
   const offer=await pc.createOffer();await pc.setLocalDescription(offer);
   currentRef=doc(collection(db,"calls"));
   await setDoc(currentRef,{chatId:c.id,callerUid:user.uid,calleeUid:peer,callType:type,status:"ringing",offer:{type:offer.type,sdp:offer.sdp},createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+  callDocReady=true;for(const candidate of pendingCallerCandidates.splice(0))await addDoc(collection(db,"calls",currentRef.id,"callerCandidates"),candidate);
   callUnsub=onSnapshot(currentRef,async snap=>{if(!snap.exists())return;const data=snap.data();if(data.answer&&pc&&pc.signalingState==="have-local-offer")await pc.setRemoteDescription(new RTCSessionDescription(data.answer));if(data.status==="ended"||data.status==="declined"){note(data.status==="declined"?"Call declined.":"Call ended.");cleanup();}else if(data.status==="accepted")$("chatCallStatus").textContent="Connected · "+type+" call";});
   candidateUnsubs.push(onSnapshot(collection(db,"calls",currentRef.id,"calleeCandidates"),snap=>snap.docChanges().forEach(ch=>{if(ch.type==="added"&&pc)pc.addIceCandidate(new RTCIceCandidate(ch.doc.data())).catch(console.warn);})));
   $("chatCallStatus").textContent="Calling… waiting for the other member.";
