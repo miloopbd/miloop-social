@@ -27,3 +27,19 @@ export function mediaMarkup(post,className="miloop-media"){
       :'<div class="'+className+'"><img src="'+url+'" alt="MILOOP media" loading="lazy"></div>';
   }).join("");
 }
+
+export async function uploadChatFile(file) {
+  if (!(file instanceof File)) throw new Error("Choose a file first.");
+  const isAudio=/^audio\\/(webm|ogg|mpeg|mp4|wav|aac)$/i.test(file.type);
+  const isDocument=/^(application\\/pdf|application\\/vnd\\.openxmlformats-officedocument\\.(wordprocessingml\\.document|spreadsheetml\\.sheet|presentationml\\.presentation)|text\\/plain)$/i.test(file.type);
+  if(!isAudio&&!isDocument)throw new Error("Supported: voice notes, PDF, DOCX, XLSX, PPTX and TXT.");
+  if(file.size>20*1024*1024)throw new Error("File must be 20 MB or smaller.");
+  const resourceType=isAudio?"video":"raw",form=new FormData();
+  form.append("file",file);form.append("upload_preset",CLOUDINARY_UPLOAD_PRESET);form.append("folder","miloop/chat-files");
+  return new Promise((resolve,reject)=>{
+    const xhr=new XMLHttpRequest();xhr.open("POST","https://api.cloudinary.com/v1_1/"+CLOUDINARY_CLOUD_NAME+"/"+resourceType+"/upload");
+    xhr.onload=()=>{let data={};try{data=JSON.parse(xhr.responseText||"{}");}catch(_){}if(xhr.status>=200&&xhr.status<300&&data.secure_url)resolve({url:data.secure_url,type:isAudio?"audio":"document",publicId:data.public_id||"",name:file.name,mime:file.type,size:file.size});else reject(new Error(data.error?.message||"File upload failed ("+xhr.status+")."));};
+    xhr.onerror=()=>reject(new Error("Network error while uploading."));
+    xhr.send(form);
+  });
+}
