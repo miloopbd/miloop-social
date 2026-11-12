@@ -329,49 +329,12 @@ async function openChat(otherUid,otherName){
   }catch(e){console.error("MILOOP chat open error:",e);toast("Could not open chat: "+(e.message||e.code||"unknown error"));}
 }
 handlers.messages=()=>{
-  openPanel("Messenger",'<p>Search members by name or Profile ID, or open an existing conversation.</p>'+
-    '<input id="memberSearch" placeholder="Search name or Profile ID…" autocomplete="off">'+
-    '<button class="action" id="searchMembers">Search members</button><div id="memberSearchResults"></div>'+
-    '<h3 style="font-size:12px;margin:18px 0 8px;color:#243653">Your conversations</h3><div id="chatList">Loading chats…</div>');
-  $("searchMembers").onclick=async()=>{
-    const term=$("memberSearch").value.trim(),target=$("memberSearchResults");
-    if(!term){toast("Enter a name or Profile ID.");return;}
-    target.textContent="Searching…";
-    try{
-      const exact=await getDoc(doc(db,"publicProfiles",term));
-      let profiles=[];
-      if(exact.exists())profiles=[exact];
-      else{
-        const all=await getDocs(query(collection(db,"publicProfiles"),limit(300)));
-        const needle=term.toLowerCase();
-        profiles=all.docs.filter(d=>{
-          const p=d.data();return (p.displayName||"").toLowerCase().includes(needle)||d.id.toLowerCase().includes(needle);
-        }).slice(0,25);
-      }
-      if(!profiles.length){target.innerHTML='<div class="social-item">No members found. Check the spelling or Profile ID.</div>';return;}
-      target.innerHTML=profiles.filter(d=>d.id!==currentUser.uid).map(d=>{
-        const p=d.data(),name=p.displayName||"MILOOP member",initial=name.trim().charAt(0).toUpperCase()||"M";
-        return '<div class="member-result"><div class="chat-row" style="border:0;padding:2px 0"><span class="chat-avatar">'+escapeHtml(initial)+'</span><span class="chat-meta"><b>'+escapeHtml(name)+'</b><small>Profile ID: '+escapeHtml(d.id)+'</small></span><button class="action" data-open-member="'+escapeHtml(d.id)+'" data-name="'+escapeHtml(name)+'">Message</button></div></div>';
-      }).join("")||'<div class="social-item">That is your own profile.</div>';
-      target.querySelectorAll("[data-open-member]").forEach(el=>el.onclick=()=>openChat(el.dataset.openMember,el.dataset.name));
-    }catch(e){console.error(e);target.textContent="Search failed: "+(e.code||e.message);}
-  };
-  stopListener=onSnapshot(query(collection(db,"chats"),where("members","array-contains",currentUser.uid)),async snap=>{
-    const target=$("chatList");if(!target)return;
-    if(snap.empty){target.innerHTML='<div class="social-item">No conversations yet. Search a member above to start chatting.</div>';return;}
-    const rows=await Promise.all(snap.docs.map(async d=>{
-      const data=d.data(),other=(data.members||[]).find(uid=>uid!==currentUser.uid);
-      if(!other)return "";
-      let name="MILOOP member";
-      try{const profile=await getDoc(doc(db,"publicProfiles",other));if(profile.exists())name=profile.data().displayName||name;}
-      catch(e){console.warn("Could not load chat member profile",e);}
-      return '<div class="chat-row"><span class="chat-avatar">'+escapeHtml(name.charAt(0).toUpperCase())+'</span><span class="chat-meta"><b><button type="button" class="profile-name-link" data-profile-uid="'+escapeHtml(other)+'">'+escapeHtml(name)+'</button></b><small>Open conversation</small></span><button type="button" class="action secondary" data-chat-uid="'+escapeHtml(other)+'" data-chat-name="'+escapeHtml(name)+'">Message</button></div>';
-    }));
-    if($("chatList"))$("chatList").innerHTML=rows.join("")||'<div class="social-item">No conversations yet.</div>';
-    $("chatList")?.querySelectorAll("[data-chat-uid]").forEach(el=>el.onclick=()=>openChat(el.dataset.chatUid,el.dataset.chatName));
-  },e=>{console.error(e);const target=$("chatList");if(target)target.textContent="Could not load chats: "+(e.code||e.message);});
+  if(stopListener){stopListener();stopListener=null;}
+  if(stopChat){stopChat();stopChat=null;}
+  if(stopPresence){stopPresence();stopPresence=null;}
+  if(stopTyping){stopTyping();stopTyping=null;}
+  document.dispatchEvent(new CustomEvent("miloop:open-messages"));
 };
-
 handlers.notifications=()=>{
   openPanel("Notifications",'<p>Your account activity will appear here.</p><div id="notificationsList">Loading…</div>');
   const ref=collection(db,"users",currentUser.uid,"notifications");
