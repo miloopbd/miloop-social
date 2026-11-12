@@ -357,6 +357,57 @@ service cloud.firestore {
 
 
     // Community Hub: polls and one vote per member.
+    match /calls/{callId} {
+      allow create: if activeMember()
+        && request.resource.data.callerUid == request.auth.uid
+        && request.resource.data.calleeUid is string
+        && request.resource.data.calleeUid != request.auth.uid
+        && request.resource.data.chatId is string
+        && isChatMember(request.resource.data.chatId)
+        && get(/databases/$(database)/documents/chats/$(request.resource.data.chatId)).data.members.hasAny([request.resource.data.calleeUid])
+        && request.resource.data.callType in ['audio','video']
+        && request.resource.data.status == 'ringing'
+        && request.resource.data.offer.type == 'offer'
+        && request.resource.data.offer.sdp is string
+        && request.resource.data.createdAt == request.time;
+      allow read: if activeMember()
+        && (resource.data.callerUid == request.auth.uid || resource.data.calleeUid == request.auth.uid);
+      allow update: if activeMember()
+        && (resource.data.callerUid == request.auth.uid || resource.data.calleeUid == request.auth.uid)
+        && (
+          (request.auth.uid == resource.data.calleeUid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer','status','updatedAt'])
+            && request.resource.data.answer.type == 'answer'
+            && request.resource.data.answer.sdp is string
+            && request.resource.data.status in ['accepted','declined'])
+          || (request.auth.uid == resource.data.callerUid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
+            && request.resource.data.status == 'ended')
+          || (request.auth.uid == resource.data.calleeUid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
+            && request.resource.data.status == 'ended')
+        );
+      allow delete: if false;
+      match /callerCandidates/{candidateId} {
+        allow read: if activeMember()
+          && (get(/databases/$(database)/documents/calls/$(callId)).data.callerUid == request.auth.uid
+            || get(/databases/$(database)/documents/calls/$(callId)).data.calleeUid == request.auth.uid);
+        allow create: if activeMember()
+          && get(/databases/$(database)/documents/calls/$(callId)).data.callerUid == request.auth.uid
+          && request.resource.data.candidate is string;
+        allow update, delete: if false;
+      }
+      match /calleeCandidates/{candidateId} {
+        allow read: if activeMember()
+          && (get(/databases/$(database)/documents/calls/$(callId)).data.callerUid == request.auth.uid
+            || get(/databases/$(database)/documents/calls/$(callId)).data.calleeUid == request.auth.uid);
+        allow create: if activeMember()
+          && get(/databases/$(database)/documents/calls/$(callId)).data.calleeUid == request.auth.uid
+          && request.resource.data.candidate is string;
+        allow update, delete: if false;
+      }
+    }
+
     match /statuses/{statusId} {
       allow read: if activeMember();
       allow create: if activeMember()
