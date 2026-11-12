@@ -35,3 +35,5 @@
 .chat-status-item p{margin:3px 0;font-size:12px;overflow-wrap:anywhere}
 .chat-status-item small{color:#8794a7;font-size:10px}
 .chat-status-item button{border:0;border-radius:8px;padding:7px 9px;background:#edf3ff;color:#155eef}
+
+.chat-composer #chatEvent{border:1px solid #dce5f2;background:#f7f9fc;color:#155eef;border-radius:9px;padding:9px 8px;font-size:11px;font-weight:700}
