@@ -178,7 +178,8 @@ service cloud.firestore {
       allow read: if activeMember() && (!exists(/databases/$(database)/documents/chats/$(chatId)) || resource.data.members.hasAny([request.auth.uid]));
       allow create: if activeMember()
         && request.resource.data.members is list
-        && request.resource.data.members.size() == 2
+        && request.resource.data.members.size() >= 2
+        && request.resource.data.members.size() <= 20
         && request.resource.data.members.hasAny([request.auth.uid])
         && request.resource.data.members[0] != request.resource.data.members[1];
       allow update: if activeMember()
@@ -204,13 +205,16 @@ service cloud.firestore {
         allow create: if isChatMember(chatId)
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 1000
+          && (request.resource.data.text.size() > 0 || ('mediaUrl' in request.resource.data))
+          && (!('mediaUrl' in request.resource.data) || (request.resource.data.mediaUrl is string && request.resource.data.mediaUrl.matches('https://res\\.cloudinary\\.com/.*')))
+          && (!('mediaType' in request.resource.data) || request.resource.data.mediaType in ['image','video'])
           && request.resource.data.createdAt == request.time
           && request.resource.data.seenBy is list
           && request.resource.data.seenBy.size() == 0
           && (!('replyToUid' in request.resource.data) || request.resource.data.replyToUid is string)
-          && (!('replyToText' in request.resource.data) || (request.resource.data.replyToText is string && request.resource.data.replyToText.size() <= 160));
+          && (!('replyToText' in request.resource.data) || (request.resource.data.replyToText is string && request.resource.data.replyToText.size() <= 160))
+          && (!('forwarded' in request.resource.data) || request.resource.data.forwarded == true);
         allow update: if (isChatMember(chatId)
           && resource.data.uid == request.auth.uid
           && request.resource.data.uid == resource.data.uid
@@ -227,6 +231,15 @@ service cloud.firestore {
             && request.resource.data.seenBy.hasAny([request.auth.uid])
             && request.resource.data.seenAt == request.time);
         allow delete: if isChatMember(chatId) && resource.data.uid == request.auth.uid;
+
+        match /reactions/{memberUid} {
+          allow read: if isChatMember(chatId);
+          allow create, update: if isChatMember(chatId) && request.auth.uid == memberUid
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.emoji in ['👍','❤️','😂','😮','😢','🙏']
+            && request.resource.data.updatedAt == request.time;
+          allow delete: if isChatMember(chatId) && request.auth.uid == memberUid;
+        }
       }
     }
 
