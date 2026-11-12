@@ -1,5 +1,5 @@
 import { auth, db } from "./firebase.js";
-import { uploadMedia, uploadChatFile } from "./cloudinary.js";
+import { uploadMedia, uploadChatFile } from "./cloudinary.js?v=20261112-chat-files-2";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { collection, doc, getDocs, getDoc, query, where, orderBy, limit, onSnapshot, addDoc, setDoc, updateDoc, serverTimestamp, arrayUnion, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
@@ -70,4 +70,4 @@ $("chatPickerStart").addEventListener("click",async()=>{const ids=[...selectedPe
 async function updatePresence(online){if(!user)return;try{await setDoc(doc(db,"presence",user.uid),{uid:user.uid,isOnline:online,lastSeenAt:serverTimestamp()},{merge:true});}catch(e){console.debug("Presence update:",e.message);}}
 onAuthStateChanged(auth,async u=>{user=u;if(!u){stop(stopChats);stop(stopMessages);stop(stopPresence);stop(stopTyping);return;}try{const snap=await getDoc(doc(db,"publicProfiles",u.uid));profile=snap.exists()?snap.data():{displayName:u.displayName||u.email?.split("@")[0]||"MILOOP member"};profileCache[u.uid]=profile;}catch{profile={displayName:u.displayName||"MILOOP member"};}await updatePresence(true);document.addEventListener("visibilitychange",()=>updatePresence(!document.hidden));window.addEventListener("pagehide",()=>updatePresence(false));});
 
-window.MILOOPChat={getActiveChat:()=>activeChat,getUser:()=>user,refresh:()=>renderChats(),notify};
+window.MILOOPChat={getActiveChat:()=>activeChat,getUser:()=>user,open:openDialog,refresh:()=>renderChats(),notify};
