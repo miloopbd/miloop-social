@@ -1,5 +1,5 @@
 import { auth, db } from "./firebase.js";
-import { uploadMedia, uploadChatFile } from "./cloudinary.js?v=20261112-chat-files-2";
+import { uploadMedia, uploadChatFile } from "./cloudinary.js?v=20261112-chat-files-3";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { collection, doc, getDocs, getDoc, query, where, orderBy, limit, onSnapshot, addDoc, setDoc, updateDoc, serverTimestamp, arrayUnion, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
