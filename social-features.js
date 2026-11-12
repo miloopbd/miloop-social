@@ -496,6 +496,7 @@ document.querySelector(".mobile-nav")?.addEventListener("click",event=>{
   const control=event.target.closest("[data-social-action]");if(!control)return;
   event.preventDefault();event.stopPropagation();
   const action=control.dataset.socialAction;if(!needUser())return;
+  if(action==="messages"){document.dispatchEvent(new CustomEvent("miloop:open-messages"));return;}
   handlers[action]?.();
 });
 /* Desktop sidebar navigation uses hash links; route them to the same social panels. */
@@ -506,6 +507,7 @@ document.addEventListener("click",event=>{
   event.stopImmediatePropagation();
   const action=link.getAttribute("href").slice(1);
   if(!needUser())return;
+  if(action==="messages"){document.dispatchEvent(new CustomEvent("miloop:open-messages"));return;}
   if(typeof handlers[action]==="function")handlers[action]();
   else toast("This section is loading. Please refresh and try again.");
 },true);
