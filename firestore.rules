@@ -302,8 +302,10 @@ service cloud.firestore {
           && (!('fileName' in request.resource.data) || (request.resource.data.fileName is string && request.resource.data.fileName.size() <= 180))
           && (!('fileSize' in request.resource.data) || (request.resource.data.fileSize is int && request.resource.data.fileSize <= 20971520))
           && (!('fileMime' in request.resource.data) || request.resource.data.fileMime is string)
-          && (!('kind' in request.resource.data) || request.resource.data.kind == 'poll')
+          && (!('kind' in request.resource.data) || request.resource.data.kind in ['poll','event'])
           && (!('pollOptions' in request.resource.data) || (request.resource.data.pollOptions is list && request.resource.data.pollOptions.size() >= 2 && request.resource.data.pollOptions.size() <= 4))
+          && (!('eventDate' in request.resource.data) || (request.resource.data.eventDate is string && request.resource.data.eventDate.size() <= 80))
+          && (!('eventLocation' in request.resource.data) || (request.resource.data.eventLocation is string && request.resource.data.eventLocation.size() <= 180))
           && (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp);
         allow update: if (isChatMember(chatId)
           && resource.data.uid == request.auth.uid
@@ -334,6 +336,14 @@ service cloud.firestore {
           allow update, delete: if false;
         }
 
+        match /eventRsvps/{memberUid} {
+          allow read: if isChatMember(chatId);
+          allow create: if isChatMember(chatId) && request.auth.uid == memberUid
+            && get(/databases/$(database)/documents/chats/$(chatId)/messages/$(messageId)).data.kind == 'event'
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.createdAt == request.time;
+          allow update, delete: if isChatMember(chatId) && request.auth.uid == memberUid;
+        }
         match /reactions/{memberUid} {
           allow read: if isChatMember(chatId);
           allow create, update: if isChatMember(chatId) && request.auth.uid == memberUid
