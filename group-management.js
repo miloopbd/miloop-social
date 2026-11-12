@@ -72,7 +72,7 @@ async function join(){
    const c=cs.data(),v=is.data();if(!v.active||v.expiresAt?.toDate?.().getTime()<Date.now()||v.uses>=v.maxUses)throw Error("Invite expired or full.");
    if(c.members.includes(user.uid))return;if(c.members.length>=100)throw Error("Group is full.");
    const ps=await tx.get(doc(db,"publicProfiles",user.uid)),display=nm(ps.exists()?ps.data():{displayName:user.displayName});
-   tx.update(cr,{members:[...c.members,user.uid],memberNames:{...(c.memberNames||{}),[user.uid]:display},unreadCounts:{...(c.unreadCounts||{}),[user.uid]:0},updatedAt:serverTimestamp()});
+   tx.update(cr,{members:[...c.members,user.uid],memberNames:{...(c.memberNames||{}),[user.uid]:display},unreadCounts:{...(c.unreadCounts||{}),[user.uid]:0},lastJoinInviteId:token,updatedAt:serverTimestamp()});
    tx.update(ir,{uses:v.uses+1});
   });
   const u=new URL(location.href);u.searchParams.delete("join");history.replaceState({}, "",u.href);note("Joined group. Open Messages to see it.");
@@ -82,4 +82,5 @@ onAuthStateChanged(auth,u=>{user=u;if(u)join();});
 document.addEventListener("miloop:group-manage-open",e=>{active=e.detail?.chat;if(!active)return;root.hidden=false;render().catch(err=>note(err.message));});
 $("groupInfoButton")?.addEventListener("click",()=>document.dispatchEvent(new Event("miloop:group-manage")));
 document.addEventListener("miloop:open-messages",()=>{const b=$("groupInfoButton");if(b)b.hidden=!window.MILOOPChat?.getActiveChat?.()?.isGroup;});
+document.addEventListener("miloop:active-chat-changed",()=>{const b=$("groupInfoButton");if(b)b.hidden=!window.MILOOPChat?.getActiveChat?.()?.isGroup;});
 document.addEventListener("click",e=>{if(e.target===root)close();});
