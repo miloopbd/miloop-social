@@ -20,6 +20,16 @@ function stop(ref){if(ref)ref();}
 function openDialog(){if(!user){$("authOpen")?.click();notify("Sign in to use Messages.");return;}if(!dialog.open)dialog.showModal();loadChats();}
 document.addEventListener("miloop:open-messages",openDialog);
 $("chatClose").addEventListener("click",()=>dialog.close());
+$("chatExport").addEventListener("click",async()=>{
+ if(!activeChat)return;
+ try{
+  notify("Preparing chat export…");
+  const snap=await getDocs(query(collection(db,"chats",activeChat.id,"messages"),orderBy("createdAt","asc")));
+  const data={exportedAt:new Date().toISOString(),chat:{id:activeChat.id,name:chatName(activeChat),isGroup:!!activeChat.isGroup},messages:snap.docs.map(d=>{const m=d.data();return {id:d.id,uid:m.uid,displayName:m.displayName||"",text:m.text||"",mediaUrl:m.mediaUrl||"",mediaType:m.mediaType||"",fileName:m.fileName||"",createdAt:m.createdAt?.toDate?.().toISOString()||null,edited:!!m.edited,forwarded:!!m.forwarded,replyToText:m.replyToText||"",kind:m.kind||"",pollOptions:m.pollOptions||[],eventDate:m.eventDate||"",eventLocation:m.eventLocation||""};})};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="miloop-chat-"+activeChat.id+".json";a.click();URL.revokeObjectURL(url);notify("Chat export downloaded.");
+ }catch(e){notify("Chat export failed: "+e.message);}
+});
+
 $("chatBack").addEventListener("click",()=>{dialog.classList.remove("chat-has-active");$("chatActive").hidden=true;$("chatWelcome").hidden=false;activeChat=null;stop(stopMessages);stop(stopPresence);stop(stopTyping);});
 function loadChats(){stop(stopChats);stopChats=onSnapshot(query(collection(db,"chats"),where("members","array-contains",user.uid)),async snap=>{chats=snap.docs.map(d=>({id:d.id,...d.data()}));await cacheChatProfiles(chats);chats.sort((a,b)=>lastActivity(b)-lastActivity(a));renderChats();},err=>notify("Could not load conversations: "+err.message));}
 function renderChats(){const term=$("chatSearch").value.trim().toLowerCase();const rows=chats.filter(c=>(chatName(c)+" "+(c.description||"")+" "+(c.lastMessage||"")).toLowerCase().includes(term)).sort((a,b)=>lastActivity(b)-lastActivity(a));listEl.innerHTML=rows.length?rows.map(c=>{const name=chatName(c),unread=unreadCount(c);return '<button type="button" class="chat-list-item '+(activeChat?.id===c.id?"active":"")+(unread?" unread":"")+'" data-chat-id="'+esc(c.id)+'">'+chatAvatar(c,name)+'<span class="chat-list-copy"><b>'+esc(name)+'</b><small>'+esc(c.lastMessage||c.description||"Start a conversation")+'</small></span>'+(unread?'<span class="chat-unread-count">'+(unread>99?"99+":unread)+'</span>':"")+'</button>';}).join(""):'<div class="chat-empty">No conversations yet. Start a new chat.</div>';listEl.querySelectorAll("[data-chat-id]").forEach(b=>b.addEventListener("click",()=>openChat(chats.find(c=>c.id===b.dataset.chatId))));}
