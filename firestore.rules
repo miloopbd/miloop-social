@@ -245,7 +245,7 @@ service cloud.firestore {
         && (!('groupName' in request.resource.data) || (resource.data.isGroup == true && request.resource.data.groupName is string && request.resource.data.groupName.size() > 0 && request.resource.data.groupName.size() <= 60))
         && (!('description' in request.resource.data) || (resource.data.isGroup == true && request.resource.data.description is string && request.resource.data.description.size() <= 300))
         && (!('photoUrl' in request.resource.data) || (resource.data.isGroup == true && request.resource.data.photoUrl is string && request.resource.data.photoUrl.matches('https://res\\.cloudinary\\.com/.*')));
-      allow delete: if false;
+      allow delete: if activeMember() && resource.data.isGroup == true && resource.data.createdBy == request.auth.uid;
 
       match /invites/{inviteId} {
         allow read: if activeMember() && resource.data.active == true;
