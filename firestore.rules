@@ -9,6 +9,14 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/chats/$(chatId))
         && get(/databases/$(database)/documents/chats/$(chatId)).data.members.hasAny([request.auth.uid]);
     }
+    function validPostMediaItem(item) {
+      return item is map
+        && item.keys().hasOnly(['url','type','publicId'])
+        && item.url is string
+        && item.url.matches('https://res\\.cloudinary\\.com/.*')
+        && item.type in ['image','video']
+        && (!('publicId' in item) || item.publicId is string);
+    }
     function isGroupMember(groupId) {
       return activeMember()
         && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
@@ -797,17 +805,33 @@ service cloud.firestore {
         && request.resource.data.sponsorRequestId is string
         && request.resource.data.createdAt == request.time
       ) || (activeMember()
-        && request.resource.data.keys().hasOnly(['authorUid','authorName','text','mediaUrl','mediaType','mediaPath','createdAt','likes','likeCount','background','feeling','viewCount'])
+        && request.resource.data.keys().hasOnly(['authorUid','authorName','text','mediaUrl','mediaType','mediaPath','mediaItems','createdAt','likes','likeCount','background','feeling','viewCount'])
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorName is string
         && request.resource.data.authorName.size() > 0
         && request.resource.data.authorName.size() <= 60
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 1000
-        && (request.resource.data.text.size() > 0 || ('mediaUrl' in request.resource.data))
+        && (request.resource.data.text.size() > 0
+          || ('mediaUrl' in request.resource.data)
+          || ('mediaItems' in request.resource.data && request.resource.data.mediaItems is list && request.resource.data.mediaItems.size() > 0))
         && (!('mediaUrl' in request.resource.data) || (request.resource.data.mediaUrl is string && request.resource.data.mediaUrl.matches('https://res\\.cloudinary\\.com/.*')))
         && (!('mediaType' in request.resource.data) || request.resource.data.mediaType in ['image','video'])
         && (!('mediaPath' in request.resource.data) || request.resource.data.mediaPath is string)
+        && (!('mediaItems' in request.resource.data) || (
+          request.resource.data.mediaItems is list
+          && request.resource.data.mediaItems.size() <= 10
+        && (request.resource.data.mediaItems.size() < 1 || validPostMediaItem(request.resource.data.mediaItems[0]))
+        && (request.resource.data.mediaItems.size() < 2 || validPostMediaItem(request.resource.data.mediaItems[1]))
+        && (request.resource.data.mediaItems.size() < 3 || validPostMediaItem(request.resource.data.mediaItems[2]))
+        && (request.resource.data.mediaItems.size() < 4 || validPostMediaItem(request.resource.data.mediaItems[3]))
+        && (request.resource.data.mediaItems.size() < 5 || validPostMediaItem(request.resource.data.mediaItems[4]))
+        && (request.resource.data.mediaItems.size() < 6 || validPostMediaItem(request.resource.data.mediaItems[5]))
+        && (request.resource.data.mediaItems.size() < 7 || validPostMediaItem(request.resource.data.mediaItems[6]))
+        && (request.resource.data.mediaItems.size() < 8 || validPostMediaItem(request.resource.data.mediaItems[7]))
+        && (request.resource.data.mediaItems.size() < 9 || validPostMediaItem(request.resource.data.mediaItems[8]))
+        && (request.resource.data.mediaItems.size() < 10 || validPostMediaItem(request.resource.data.mediaItems[9]))
+        ))
         && request.resource.data.likes is list
         && request.resource.data.likes.size() == 0
         && request.resource.data.likeCount == 0
@@ -815,6 +839,7 @@ service cloud.firestore {
         && (!('background' in request.resource.data) || request.resource.data.background in ['plain','sunset','ocean','mint','lavender','rose','night'])
         && (!('feeling' in request.resource.data) || request.resource.data.feeling in ['','happy','excited','grateful','loved','motivated','thoughtful','celebrating'])
         && request.resource.data.createdAt == request.time);
+
 
       allow update: if (
         activeMember()
