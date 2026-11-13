@@ -12,8 +12,7 @@ let activeCommentPost = null;
 let toastTimer = null;
 let observer = null;
 let audioUnlocked = false;
-let soundPrompt = null;
-let soundPromptShown = false;
+let activeReelVideo = null;
 const viewedThisSession = new Set();
 const profileCache = new Map();
 
@@ -65,7 +64,7 @@ function mediaFor(post) {
 function mediaElement(item, index) {
   const url = esc(item.url);
   if (item.type === "video") {
-    return '<video class="reel-video" src="' + url + '" playsinline loop preload="' + (index < 2 ? "auto" : "metadata") + '" aria-label="MILOOP video"></video><div class="reel-video-progress" aria-hidden="true"><span></span></div><button class="reel-play-toggle" type="button" data-reel-play aria-label="Play or pause">Ⅱ</button><button class="reel-fullscreen" type="button" data-reel-fullscreen aria-label="Full screen">⛶</button>';
+    return '<video class="reel-video" src="' + url + '" playsinline loop muted preload="' + (index < 2 ? "auto" : "metadata") + '" aria-label="MILOOP video"></video><div class="reel-video-progress" aria-hidden="true"><span></span></div><button class="reel-play-toggle" type="button" data-reel-play aria-label="Play or pause">Ⅱ</button><button class="reel-fullscreen" type="button" data-reel-fullscreen aria-label="Full screen">⛶</button>';
   }
   return '<img src="' + url + '" alt="MILOOP photo" loading="' + (index < 2 ? "eager" : "lazy") + '">';
 }
@@ -92,45 +91,37 @@ function renderCards(items) {
   }).join("");
   observeVideos();
 }
-function showSoundPrompt() {
-  if (soundPromptShown || audioUnlocked) return;
-  soundPromptShown = true;
-  soundPrompt = document.createElement("button");
-  soundPrompt.type = "button";
-  soundPrompt.className = "reel-sound-enable";
-  soundPrompt.textContent = "▶ একবার চাপুন — সাউন্ড চালু হবে";
-  soundPrompt.addEventListener("click", unlockReelAudio, { once: true });
-  feed.prepend(soundPrompt);
-}
-async function unlockReelAudio() {
+function unlockReelAudio() {
   audioUnlocked = true;
-  soundPrompt?.remove();
-  soundPrompt = null;
   feed.querySelectorAll("video.reel-video").forEach(video => {
     video.muted = false;
     video.volume = 1;
   });
-  const activeCard = [...feed.querySelectorAll(".reel-card")].find(card => {
-    const rect = card.getBoundingClientRect();
-    return rect.top < window.innerHeight * 0.7 && rect.bottom > window.innerHeight * 0.3;
-  });
-  const activeVideo = activeCard?.querySelector("video.reel-video");
-  if (activeVideo) {
-    try { await activeVideo.play(); }
-    catch (error) { console.warn("Browser blocked Reel audio:", error); }
+  const video = activeReelVideo || feed.querySelector(".reel-card video.reel-video");
+  if (video) {
+    video.muted = false;
+    video.volume = 1;
+    const result = video.play();
+    if (result?.catch) result.catch(error => {
+      console.warn("Reel sound playback blocked:", error);
+      toast("এই ভিডিওতে সাউন্ড চালু করা যাচ্ছে না।");
+    });
   }
+  const button = document.getElementById("reelEnableSound");
+  if (button) { button.textContent = "🔊 Sound On"; button.classList.add("sound-enabled"); }
 }
+
 function playReelVideo(video) {
   if (!video) return;
   video.muted = !audioUnlocked;
   video.volume = 1;
-  video.play().catch(() => { if (!audioUnlocked) showSoundPrompt(); });
+  video.play().catch(error => { console.warn("Reel playback blocked:", error); });
 }
 function observeVideos() {
   if (observer) observer.disconnect();
   const cards = feed.querySelectorAll(".reel-card");
   if (!("IntersectionObserver" in window)) {
-    cards.forEach(card => { const video = card.querySelector("video"); if (video) playReelVideo(video); recordReelView(card); });
+    cards.forEach(card => { const video = card.querySelector("video"); if (video) { activeReelVideo = video; playReelVideo(video); } recordReelView(card); });
     return;
   }
   observer = new IntersectionObserver(entries => {
@@ -138,8 +129,8 @@ function observeVideos() {
       const video = entry.target.querySelector("video");
       if (entry.isIntersecting && entry.intersectionRatio >= 0.65) {
         recordReelView(entry.target);
-        if (video) playReelVideo(video);
-      } else if (video) video.pause();
+        if (video) { activeReelVideo = video; playReelVideo(video); }
+      } else if (video) { video.pause(); if (activeReelVideo === video) activeReelVideo = null; }
     });
   }, { root: feed, threshold: [0,0.65,1] });
   cards.forEach(card => {
@@ -296,6 +287,7 @@ $("reelUploadForm").addEventListener("submit", async event => {
     button.textContent = "Share to Reels";
   }
 });
+document.getElementById("reelEnableSound")?.addEventListener("click", unlockReelAudio);
 feed.addEventListener("click", async event => {
   const card = event.target.closest(".reel-card");
   if (event.target.closest("[data-reel-upload]")) { openUpload(); return; }
@@ -304,7 +296,7 @@ feed.addEventListener("click", async event => {
   const postId = card.dataset.postId;
   if (event.target.closest("[data-reel-play]")) {
     const video = card.querySelector("video");
-    if (video) { if (video.paused) { if (!audioUnlocked) unlockReelAudio(); else playReelVideo(video); } else video.pause(); event.target.closest("[data-reel-play]").textContent = video.paused ? "▶" : "Ⅱ"; }
+    if (video) { activeReelVideo = video; if (!audioUnlocked) unlockReelAudio(); else if (video.paused) playReelVideo(video); else video.pause(); event.target.closest("[data-reel-play]").textContent = video.paused ? "▶" : "Ⅱ"; }
     return;
   }
   if (event.target.closest("[data-reel-fullscreen]")) {
