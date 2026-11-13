@@ -11,6 +11,9 @@ let currentUser = null;
 let activeCommentPost = null;
 let toastTimer = null;
 let observer = null;
+let audioUnlocked = false;
+let soundPrompt = null;
+let soundPromptShown = false;
 const viewedThisSession = new Set();
 const profileCache = new Map();
 
@@ -62,7 +65,7 @@ function mediaFor(post) {
 function mediaElement(item, index) {
   const url = esc(item.url);
   if (item.type === "video") {
-    return '<video class="reel-video" src="' + url + '" playsinline loop muted preload="' + (index < 2 ? "auto" : "metadata") + '" aria-label="MILOOP video"></video><div class="reel-video-progress" aria-hidden="true"><span></span></div><button class="reel-play-toggle" type="button" data-reel-play aria-label="Play or pause">Ⅱ</button><button class="reel-fullscreen" type="button" data-reel-fullscreen aria-label="Full screen">⛶</button>';
+    return '<video class="reel-video" src="' + url + '" playsinline loop preload="' + (index < 2 ? "auto" : "metadata") + '" aria-label="MILOOP video"></video><div class="reel-video-progress" aria-hidden="true"><span></span></div><button class="reel-play-toggle" type="button" data-reel-play aria-label="Play or pause">Ⅱ</button><button class="reel-fullscreen" type="button" data-reel-fullscreen aria-label="Full screen">⛶</button>';
   }
   return '<img src="' + url + '" alt="MILOOP photo" loading="' + (index < 2 ? "eager" : "lazy") + '">';
 }
@@ -80,7 +83,7 @@ function renderCards(items) {
     const media = mediaElement(item.media, index);
     return '<article class="reel-card" data-post-id="' + esc(post.id) + '" data-author-uid="' + esc(post.authorUid || "") + '" data-media-type="' + esc(item.media.type) + '">' +
       '<div class="reel-media">' + media + '</div><div class="reel-shade"></div>' +
-      (item.media.type === "video" ? '<button class="reel-mute" type="button" data-reel-mute aria-label="Toggle sound">🔇</button>' : '') +
+
       '<div class="reel-copy"><div class="reel-author"><div class="reel-avatar">' + avatar + '</div><div><div class="reel-author-name">' + esc(post.authorName || "MILOOP member") + '</div><div class="reel-author-time">' + esc(timeLabel(post.createdAt)) + '</div></div></div>' +
       (post.text ? '<div class="reel-caption">' + esc(post.text) + '</div>' : '') + '<span class="reel-type">' + typeLabel + '</span></div>' +
       '<div class="reel-actions"><button class="reel-action ' + (liked ? "liked" : "") + '" type="button" data-reel-like aria-label="Like">' + (liked ? "♥" : "♡") + '<small>' + (Number(post.likeCount) || 0) + '</small></button>' +
@@ -89,11 +92,45 @@ function renderCards(items) {
   }).join("");
   observeVideos();
 }
+function showSoundPrompt() {
+  if (soundPromptShown || audioUnlocked) return;
+  soundPromptShown = true;
+  soundPrompt = document.createElement("button");
+  soundPrompt.type = "button";
+  soundPrompt.className = "reel-sound-enable";
+  soundPrompt.textContent = "▶ একবার চাপুন — সাউন্ড চালু হবে";
+  soundPrompt.addEventListener("click", unlockReelAudio, { once: true });
+  feed.prepend(soundPrompt);
+}
+async function unlockReelAudio() {
+  audioUnlocked = true;
+  soundPrompt?.remove();
+  soundPrompt = null;
+  feed.querySelectorAll("video.reel-video").forEach(video => {
+    video.muted = false;
+    video.volume = 1;
+  });
+  const activeCard = [...feed.querySelectorAll(".reel-card")].find(card => {
+    const rect = card.getBoundingClientRect();
+    return rect.top < window.innerHeight * 0.7 && rect.bottom > window.innerHeight * 0.3;
+  });
+  const activeVideo = activeCard?.querySelector("video.reel-video");
+  if (activeVideo) {
+    try { await activeVideo.play(); }
+    catch (error) { console.warn("Browser blocked Reel audio:", error); }
+  }
+}
+function playReelVideo(video) {
+  if (!video) return;
+  video.muted = !audioUnlocked;
+  video.volume = 1;
+  video.play().catch(() => { if (!audioUnlocked) showSoundPrompt(); });
+}
 function observeVideos() {
   if (observer) observer.disconnect();
   const cards = feed.querySelectorAll(".reel-card");
   if (!("IntersectionObserver" in window)) {
-    cards.forEach(card => { const video = card.querySelector("video"); if (video) video.play().catch(() => {}); recordReelView(card); });
+    cards.forEach(card => { const video = card.querySelector("video"); if (video) playReelVideo(video); recordReelView(card); });
     return;
   }
   observer = new IntersectionObserver(entries => {
@@ -101,7 +138,7 @@ function observeVideos() {
       const video = entry.target.querySelector("video");
       if (entry.isIntersecting && entry.intersectionRatio >= 0.65) {
         recordReelView(entry.target);
-        if (video) video.play().catch(() => {});
+        if (video) playReelVideo(video);
       } else if (video) video.pause();
     });
   }, { root: feed, threshold: [0,0.65,1] });
@@ -267,7 +304,7 @@ feed.addEventListener("click", async event => {
   const postId = card.dataset.postId;
   if (event.target.closest("[data-reel-play]")) {
     const video = card.querySelector("video");
-    if (video) { if (video.paused) video.play().catch(() => {}); else video.pause(); event.target.closest("[data-reel-play]").textContent = video.paused ? "▶" : "Ⅱ"; }
+    if (video) { if (video.paused) { if (!audioUnlocked) unlockReelAudio(); else playReelVideo(video); } else video.pause(); event.target.closest("[data-reel-play]").textContent = video.paused ? "▶" : "Ⅱ"; }
     return;
   }
   if (event.target.closest("[data-reel-fullscreen]")) {
@@ -276,14 +313,7 @@ feed.addEventListener("click", async event => {
     else toast("Full screen is unavailable on this browser.");
     return;
   }
-  if (event.target.closest("[data-reel-mute]")) {
-    const video = card.querySelector("video");
-    if (video) {
-      video.muted = !video.muted;
-      event.target.closest("[data-reel-mute]").textContent = video.muted ? "🔇" : "🔊";
-    }
-    return;
-  }
+
   if (event.target.closest("[data-reel-like]")) {
     if (!await requireLogin()) return;
     const button = event.target.closest("[data-reel-like]");
