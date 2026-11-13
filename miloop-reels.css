@@ -88,3 +88,5 @@
 @media(max-width:700px){.reels-insights{padding:8px 9px;font-size:10px}.reel-play-toggle{opacity:.85}.reel-fullscreen{right:10px;top:58px}}
 
 .reel-sound-enable{position:sticky;top:8px;z-index:30;display:block;margin:8px auto;padding:12px 18px;border:0;border-radius:999px;background:#155eef;color:#fff;font:700 13px "DM Sans",sans-serif;box-shadow:0 8px 28px #0005;cursor:pointer}
+
+.reel-sound-enable{display:block;margin:10px auto 0;padding:12px 18px;border:0;border-radius:999px;background:#155eef;color:#fff;font:700 13px "DM Sans",sans-serif;box-shadow:0 8px 24px #0002;cursor:pointer;position:relative;z-index:40}.reel-sound-enable.sound-enabled{background:#067647}
