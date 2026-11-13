@@ -988,5 +988,23 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+
+    // User-owned Story Highlights collections.
+    match /storyHighlights/{highlightId} {
+      allow read: if activeMember();
+      allow create: if activeMember()
+        && request.resource.data.keys().hasOnly(['uid','title','storyIds','createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 2
+        && request.resource.data.title.size() <= 40
+        && request.resource.data.storyIds is list
+        && request.resource.data.storyIds.size() > 0
+        && request.resource.data.storyIds.size() <= 20
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if activeMember() && resource.data.uid == request.auth.uid;
+    }
+
   }
 }
