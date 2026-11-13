@@ -45,12 +45,8 @@ $("miloopToolsClose").addEventListener("click", closeTools);
 modal.addEventListener("click", e => { if (e.target === modal) closeTools(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeTools(); });
 
-const header = document.querySelector(".top-actions");
-if (header && !$("miloopToolsButton")) {
-  const b = document.createElement("button");
-  b.id = "miloopToolsButton"; b.type = "button"; b.textContent = "⚙ Tools";
-  b.addEventListener("click", openTools); header.insertBefore(b, header.firstChild);
-}
+// Tools shortcut removed from the header as requested.
+
 async function loadSettings() {
   if (!user) return;
   try {
