@@ -21,7 +21,7 @@ style.textContent = `
 #miloopTools textarea{min-height:65px}#miloopTools button.tool-action{border:0;border-radius:8px;background:#155eef;color:white;padding:9px 12px;font-size:11px;font-weight:700;margin:4px 5px 4px 0;cursor:pointer}
 #miloopTools button.tool-secondary{background:#eef4ff;color:#155eef}#miloopTools button:disabled{opacity:.55}
 #miloopTools .tool-row{border-top:1px solid #edf0f5;padding:9px 0;font-size:11px;color:#243653;overflow-wrap:anywhere}
-html.miloop-data-saver video{background:#111827}html.miloop-data-saver video:not([data-user-play]){visibility:hidden}
+html.miloop-data-saver video{background:#111827}
 `;
 document.head.append(style);
 
