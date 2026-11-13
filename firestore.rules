@@ -263,15 +263,21 @@ service cloud.firestore {
           && request.resource.data.maxUses <= 100
           && request.resource.data.expiresAt is timestamp;
         allow update: if activeMember()
-          && (isChatMember(chatId)
+          && (
+            (isChatMember(chatId)
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
+              && resource.data.active == true
               && request.resource.data.active == false
               && (get(/databases/$(database)/documents/chats/$(chatId)).data.createdBy == request.auth.uid
                 || get(/databases/$(database)/documents/chats/$(chatId)).data.groupAdmins.hasAny([request.auth.uid])))
             || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uses'])
+              && resource.data.active == true
+              && resource.data.expiresAt > request.time
+              && resource.data.uses < resource.data.maxUses
               && request.resource.data.uses == resource.data.uses + 1
               && getAfter(/databases/$(database)/documents/chats/$(chatId)).data.members.hasAny([request.auth.uid])
-              && getAfter(/databases/$(database)/documents/chats/$(chatId)).data.lastJoinInviteId == inviteId));
+              && getAfter(/databases/$(database)/documents/chats/$(chatId)).data.lastJoinInviteId == inviteId)
+          );
         allow delete: if false;
       }
 
