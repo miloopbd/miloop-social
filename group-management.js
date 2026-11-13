@@ -1,7 +1,7 @@
 import { auth, db } from "./firebase.js";
 import { uploadMedia } from "./cloudinary.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { doc, getDoc, updateDoc, setDoc, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { doc, getDoc, updateDoc, setDoc, runTransaction, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 const $=id=>document.getElementById(id);
 let user=null,active=null;
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -18,11 +18,12 @@ async function render(){
  const memberHtml=members.map(({uid,p})=>'<div class="group-member"><span class="chat-avatar">'+esc(nm(p).slice(0,1).toUpperCase())+'</span><span class="group-member-copy"><b>'+esc(nm(p))+(uid===active.createdBy?' · Creator':(active.groupAdmins||[]).includes(uid)?' · Admin':'')+'</b><small>'+esc(uid)+'</small></span>'+(admin()&&uid!==user.uid&&uid!==active.createdBy?'<button class="secondary" data-remove="'+esc(uid)+'">Remove</button>':'')+(creator()&&uid!==user.uid&&uid!==active.createdBy?'<button data-role="'+esc(uid)+'">'+((active.groupAdmins||[]).includes(uid)?"Remove admin":"Make admin")+'</button>':'')+'</div>').join("");
  $("gmBody").innerHTML='<div style="text-align:center;padding:10px"><div class="chat-avatar" style="width:64px;height:64px;margin:auto;overflow:hidden">'+(active.photoUrl?'<img src="'+esc(active.photoUrl)+'" style="width:100%;height:100%;object-fit:cover">':'M')+'</div><h3>'+esc(active.groupName||"Group")+'</h3><p class="group-manager-note">'+esc(active.description||"No description")+'</p><small>'+members.length+' members</small></div>'+
  (admin()?'<label>Group name<input id="gmName" maxlength="60" value="'+esc(active.groupName||"")+'"></label><label>Description<textarea id="gmDesc" maxlength="300">'+esc(active.description||"")+'</textarea></label><label>Group photo<input id="gmPhoto" type="file" accept="image/jpeg,image/png,image/webp"></label><div class="group-manager-actions"><button id="gmSave">Save changes</button><button class="secondary" id="gmInvite">Create invite link</button></div>':'<div class="group-manager-actions"><button id="gmInvite">Create invite link</button></div>')+
- '<div id="gmInviteOut"></div><h4>Members</h4>'+memberHtml+(creator()?'<div class="group-manager-actions"><button class="secondary" id="gmTransfer">Transfer ownership</button></div>':'')+'<div class="group-manager-actions"><button class="secondary" id="gmLeave">Leave group</button></div><p class="group-manager-note">Only Creator can appoint or remove Admins and transfer ownership. Admins can manage regular members and group details.</p>';
+ '<div id="gmInviteOut"></div><h4>Members</h4>'+memberHtml+(creator()?'<div class="group-manager-actions"><button class="secondary" id="gmTransfer">Transfer ownership</button><button class="danger" id="gmDelete">Delete group</button></div>':'')+'<div class="group-manager-actions"><button class="secondary" id="gmLeave">Leave group</button></div><p class="group-manager-note">Creator can appoint Admins, transfer ownership and delete the group. Admins can edit group details and manage members.</p>';
  $("gmSave")?.addEventListener("click",save);
  $("gmInvite").onclick=invite;
  $("gmTransfer")?.addEventListener("click",transfer);
  $("gmLeave").onclick=leave;
+ $("gmDelete")?.addEventListener("click",deleteGroup);
  $("gmBody").querySelectorAll("[data-remove]").forEach(b=>b.onclick=()=>removeMember(b.dataset.remove));
  $("gmBody").querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>toggleAdmin(b.dataset.role));
 }
@@ -49,8 +50,12 @@ async function transfer(){
  try{await updateDoc(doc(db,"chats",active.id),{createdBy:uid,groupAdmins:[...admins],updatedAt:serverTimestamp()});note("Ownership transferred.");close();}catch(e){note("Transfer failed: "+e.message);}
 }
 async function leave(){
- if(creator()&&active.members.length>1){note("Transfer ownership before leaving.");return;}if(!confirm("Leave this group?"))return;
+ if(creator()&&active.members.length>1){note("Transfer ownership to another member before leaving.");return;}if(!confirm("Leave this group? You will no longer receive its messages."))return;
  try{await updateDoc(doc(db,"chats",active.id),{members:active.members.filter(x=>x!==user.uid),updatedAt:serverTimestamp()});note("You left the group.");close();}catch(e){note("Could not leave group: "+e.message);}
+}
+async function deleteGroup(){
+ if(!creator())return;const name=active.groupName||"this group";if(!confirm("Delete "+name+" for everyone? This cannot be undone."))return;if(!confirm("Confirm permanent group deletion?"))return;
+ try{await deleteDoc(doc(db,"chats",active.id));note("Group deleted.");close();document.dispatchEvent(new Event("miloop:group-deleted"));}catch(e){note("Could not delete group: "+e.message);}
 }
 async function invite(){
  if(!admin())return;
@@ -80,7 +85,7 @@ async function join(){
 }
 onAuthStateChanged(auth,u=>{user=u;if(u)join();});
 document.addEventListener("miloop:group-manage-open",e=>{active=e.detail?.chat;if(!active)return;root.hidden=false;render().catch(err=>note(err.message));});
-$("groupInfoButton")?.addEventListener("click",()=>document.dispatchEvent(new Event("miloop:group-manage")));
+$("groupInfoButton")?.addEventListener("click",()=>{const chat=window.MILOOPChat?.getActiveChat?.();if(chat?.isGroup)document.dispatchEvent(new CustomEvent("miloop:group-manage-open",{detail:{chat}}));});
 document.addEventListener("miloop:open-messages",()=>{const b=$("groupInfoButton");if(b)b.hidden=!window.MILOOPChat?.getActiveChat?.()?.isGroup;});
 document.addEventListener("miloop:active-chat-changed",()=>{const b=$("groupInfoButton");if(b)b.hidden=!window.MILOOPChat?.getActiveChat?.()?.isGroup;});
 document.addEventListener("click",e=>{if(e.target===root)close();});
