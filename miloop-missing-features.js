@@ -46,6 +46,7 @@ modal.addEventListener("click", e => { if (e.target === modal) closeTools(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeTools(); });
 
 // Tools shortcut removed from the header as requested.
+document.getElementById("miloopToolsButton")?.remove();
 
 async function loadSettings() {
   if (!user) return;
