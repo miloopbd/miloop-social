@@ -24,14 +24,6 @@ css.textContent = `
 `;
 css.textContent += "\n.md-media-label{display:block;margin:8px 0;color:#155eef;font-size:11px;font-weight:700}.md-media-label input{display:block;margin-top:6px;max-width:100%;font-size:10px}.md-group-media img,.md-group-media video{display:block;width:100%;max-height:440px;object-fit:contain;background:#101828;border-radius:10px}.md-group-post{padding:14px!important;border:1px solid #e7edf5!important}.md-group-post-head{display:flex;justify-content:space-between;align-items:center}.md-group-post-head small{display:block;font-size:10px}.md-group-more{border:0;background:transparent;color:#71809a;font-size:20px}.md-group-post-text{white-space:pre-wrap;overflow-wrap:anywhere;color:#26364d;font-size:13px;line-height:1.6;margin:12px 0}.md-group-stats{display:flex;justify-content:space-between;border-bottom:1px solid #e8edf5;padding:8px 0}.md-group-stats button{border:0;background:none;color:#71809a;font-size:10px;cursor:pointer}.md-group-actions{display:flex;align-items:center;gap:4px;padding-top:7px}.md-group-action{flex:1;border:0;background:transparent;border-radius:8px;padding:10px 4px;color:#65738a;font:600 11px 'DM Sans';cursor:pointer}.md-group-action:hover,.md-group-action.active{background:#edf3ff;color:#155eef}.md-group-reaction-wrap{position:relative;flex:1;display:flex}.md-group-reaction-wrap>.md-group-action{width:100%}.md-group-reaction-picker{position:absolute;z-index:4;bottom:44px;left:0;display:flex;gap:4px;padding:7px;background:#fff;border:1px solid #e4eaf2;border-radius:30px;box-shadow:0 5px 22px #17233d20}.md-group-reaction-picker[hidden],.md-post-menu[hidden],.md-group-comments[hidden]{display:none}.md-group-reaction-picker button{border:0;background:transparent;font-size:21px;padding:4px;cursor:pointer}.md-group-comments{border-top:1px solid #e8edf5;margin-top:9px;padding-top:10px}.md-group-comment-list{max-height:300px;overflow:auto}.md-group-comment{padding:9px 0;border-bottom:1px solid #edf0f5}.md-group-comment p{margin:4px 0;white-space:pre-wrap;font-size:12px}.md-group-comment small{color:#8995a8;font-size:10px}.md-group-comment button{border:0;background:none;color:#155eef;font-size:10px}.md-group-comment-form{display:flex;gap:7px;margin-top:10px}.md-group-comment-form input{min-width:0;flex:1;border:1px solid #dce4ef;border-radius:9px;padding:10px;font:12px 'DM Sans'}.md-group-comment-form button{border:0;background:#155eef;color:#fff;border-radius:9px;padding:0 14px;font-weight:700}.md-group-reaction-dialog{border:0;border-radius:16px;padding:0;width:min(420px,calc(100% - 28px));box-shadow:0 15px 50px #17233d30}.md-group-reaction-dialog::backdrop{background:#10182880}.md-group-reaction-shell{padding:15px}.md-group-reaction-head{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid #e8edf5}.md-group-reaction-head button{border:0;background:none;font-size:22px}.md-group-reaction-list>div{display:flex;justify-content:space-between;padding:10px 2px;border-bottom:1px solid #f0f2f6;font-size:12px}";
 document.head.append(css);
-const welcome = document.querySelector(".feed .welcome");
-if (welcome && !document.getElementById("miloopDiscoverOpen")) {
-  const b = document.createElement("button");
-  b.type = "button"; b.id = "miloopDiscoverOpen"; b.className = "primary";
-  b.textContent = "✦ Discover";
-  b.style.marginLeft = "8px";
-  welcome.append(b);
-}
 const tabs = [["groups","Groups"],["explore","Explore"],["saved","Saved"],["memories","On This Day"],["verify","Verified Profile"],["tools","Community Tools"]];
 function toast(msg){const el=$("toast");if(el){el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2600);}}
 function open(tab="groups"){
@@ -43,8 +35,10 @@ function open(tab="groups"){
 function close(){panel.classList.remove("open");}
 $("mdClose").onclick=close;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")close();});
-$("miloopDiscoverOpen")?.addEventListener("click",()=>open());
-$("topDiscoverButton")?.addEventListener("click",()=>open("explore"));
+document.addEventListener("click",e=>{
+ const discover=e.target.closest("#topDiscoverButton");
+ if(discover){e.preventDefault();open("explore");}
+});
 document.querySelector("[data-md-open]")?.addEventListener("click",()=>open("explore"));
 document.addEventListener("click",e=>{
  const tab=e.target.closest("[data-md-tab]");if(tab){open(tab.dataset.mdTab);return;}
