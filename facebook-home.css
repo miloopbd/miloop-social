@@ -84,3 +84,37 @@ body{background:#f0f2f5;background-image:none;color:#1c1e21}
  .post-text{font-size:14px}
 }
 @media(max-width:360px){.brand{font-size:21px}.top-actions{gap:3px}.auth-trigger{padding:6px 8px}}
+
+
+/* Homepage polish pass 2: header, story rail and bottom navigation */
+.topbar{position:sticky;top:0;z-index:45;min-width:0}
+.brand{white-space:nowrap;text-decoration:none}
+.search{min-width:0}
+.search:focus-within{outline:2px solid #cfe1ff;outline-offset:1px}
+.top-community-hub,.auth-trigger{white-space:nowrap;transition:background .18s ease,transform .18s ease}
+.top-community-hub:active,.auth-trigger:active{transform:scale(.97)}
+.feed>.stories{overflow:hidden}
+.story-list{display:flex;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.story-list::-webkit-scrollbar{display:none}
+.story{flex:0 0 auto;cursor:pointer}
+.story:focus-visible,.mobile-nav a:focus-visible,.mobile-nav button:focus-visible{outline:2px solid #1877f2;outline-offset:3px;border-radius:10px}
+.story-ring{box-sizing:border-box;transition:transform .18s ease,box-shadow .18s ease}
+.story:active .story-ring{transform:scale(.96)}
+.mobile-nav{z-index:55;box-sizing:border-box;padding-bottom:env(safe-area-inset-bottom);min-height:calc(62px + env(safe-area-inset-bottom))}
+.mobile-nav a,.mobile-nav button{transition:color .16s ease,background .16s ease}
+.mobile-nav button[data-open-post]{box-shadow:0 3px 10px #1877f233}
+@media(min-width:701px){
+  .topbar{position:sticky}
+  .feed>.stories,.feed>.composer{border-radius:12px}
+}
+@media(max-width:700px){
+  .topbar{box-shadow:0 1px 3px #00000010}
+  .feed>.stories{border-radius:0}
+  .story-list{padding:2px 1px 5px}
+  .mobile-nav{height:calc(62px + env(safe-area-inset-bottom));padding-top:2px}
+  .mobile-nav a,.mobile-nav button{justify-content:center}
+  .mobile-nav button[data-open-post]{align-self:center}
+}
+@media(prefers-reduced-motion:reduce){
+  .top-community-hub,.auth-trigger,.story-ring,.mobile-nav a,.mobile-nav button{transition:none}
+}
