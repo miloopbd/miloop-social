@@ -1,0 +1,86 @@
+/* MILOOP Facebook-inspired home refresh — keeps existing app modules and data flows intact */
+:root{--blue:#1877f2;--ink:#17212f;--muted:#6b7280;--line:#e4e6eb;--bg:#f0f2f5;--soft:#e7f3ff}
+html,body{max-width:100%;overflow-x:hidden}
+body{background:#f0f2f5;background-image:none;color:#1c1e21}
+.topbar{height:64px;padding:0 max(16px,calc((100% - 1180px)/2));background:#fff;box-shadow:0 1px 2px #00000012;border-bottom:0;gap:18px}
+.brand{font-size:27px;color:#1877f2;letter-spacing:-1.2px}
+.brand-mark{display:none}
+.dot{display:none}
+.search{width:min(300px,30vw);height:40px;border-radius:24px;background:#f0f2f5;padding:0 14px}
+.search>button{font-size:21px}
+.search input{font-size:13px}
+.top-actions{gap:9px}
+.top-community-hub{border:0;border-radius:22px;background:#f0f2f5;color:#2165c9;padding:9px 13px;font:700 11px "DM Sans";cursor:pointer}
+.auth-trigger{border-radius:20px;padding:9px 15px;font-size:11px}
+.layout{display:block;max-width:760px;margin:14px auto 90px;padding:0 12px}
+.left,.right{display:none!important}
+.feed{width:100%;max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:0}
+.feed>.welcome{display:none}
+.feed>.composer{order:1;margin:0 0 9px;padding:13px 16px;border:0;border-radius:10px;box-shadow:0 1px 2px #00000012}
+.feed>.stories{order:2;margin:0 0 9px;padding:13px 14px;border:0;border-radius:10px;box-shadow:0 1px 2px #00000012}
+.feed>.feed-heading{order:3;margin:8px 2px 10px}
+.feed>.posts{order:4;gap:9px}
+.feed>.end-feed{order:5}
+.panel,.post{border-color:transparent;box-shadow:0 1px 2px #00000012;border-radius:10px}
+.section-head h2,.feed-heading h2{font-size:15px;color:#1c1e21}
+.section-head p{font-size:11px}
+.story-list{justify-content:flex-start;gap:12px;margin-top:12px;padding-bottom:2px}
+.story{min-width:65px;gap:6px}
+.story-ring{width:58px;height:58px;border-width:3px}
+.story small{font-size:10px;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.story-ring.add{background:#e7f3ff;border-color:#e7f3ff;color:#1877f2}
+.composer .avatar{width:42px;height:42px}
+.compose-prompt{background:#f0f2f5;border-radius:24px;padding:13px 16px;font-size:13px;color:#65676b}
+.compose-actions{margin-top:10px;padding-top:9px;justify-content:space-around}
+.compose-actions button{font-size:11px}
+.compose-actions .post-shortcut{display:none}
+.post{padding:14px;margin:0}
+.post-author b{font-size:13px}
+.post-author small{font-size:11px}
+.post-text{font-size:14px;line-height:1.55;color:#1c1e21;margin:12px 0}
+.post-media,.miloop-media img,.miloop-media video{max-height:650px}
+.stats{font-size:11px;padding:9px 0}
+.post-actions{border-top:1px solid #e4e6eb;margin-top:5px;padding-top:6px;gap:4px;flex-wrap:nowrap}
+.post-actions button{font-size:12px;padding:9px 4px}
+.post-actions button span{font-size:16px}
+.mobile-nav{position:fixed;z-index:30;bottom:0;left:0;right:0;height:62px;background:#fff;border-top:1px solid #dadde2;box-shadow:0 -1px 4px #00000008;padding:0 max(6px,env(safe-area-inset-left)) env(safe-area-inset-bottom);display:flex;justify-content:space-around}
+.mobile-nav a,.mobile-nav button{flex:1;min-width:0;font-size:21px;color:#65676b}
+.mobile-nav a small,.mobile-nav button small{font-size:9px}
+.mobile-nav .current{color:#1877f2;position:relative}
+.mobile-nav .current:before{content:"";position:absolute;top:0;left:12%;right:12%;height:3px;border-radius:0 0 3px 3px;background:#1877f2}
+.mobile-nav button[data-open-post]{width:42px;height:42px;flex:0 0 42px;min-width:42px;border-radius:50%;background:#1877f2;color:#fff;font-size:25px}
+.mobile-nav button[data-social-action]{color:#65676b}
+.mobile-nav button[data-social-action]:active{color:#1877f2}
+@media(min-width:900px){
+ .layout{max-width:1180px;margin-top:18px}
+ .feed{max-width:680px}
+ .topbar{height:68px}
+}
+@media(max-width:700px){
+ body{padding-bottom:74px;background:#f0f2f5}
+ .topbar{height:56px;padding:0 12px;gap:9px}
+ .brand{font-size:24px}
+ .search{width:38px;height:38px;padding:0;justify-content:center;background:#f0f2f5}
+ .search input{display:none}
+ .search>button{font-size:22px}
+ .top-actions{margin-left:auto;gap:6px}
+ .top-community-hub{width:36px;height:36px;padding:0;border-radius:50%;font-size:0;display:grid;place-items:center}
+ .top-community-hub span{display:none}
+ .top-community-hub:before{content:"✦";font-size:17px}
+ .auth-trigger{padding:7px 10px;font-size:10px}
+ .layout{margin:9px auto 78px;padding:0 0}
+ .feed{gap:0}
+ .feed>.composer{border-radius:0;margin-bottom:7px;padding:11px 13px}
+ .feed>.stories{border-radius:0;margin-bottom:7px;padding:11px 13px}
+ .feed>.feed-heading{padding:0 12px}
+ .feed>.posts{gap:7px}
+ .post{border-radius:0;padding:12px 13px}
+ .story-list{gap:10px}
+ .story-ring{width:58px;height:58px}
+ .compose-actions{gap:5px}
+ .compose-actions button{font-size:10px}
+ .compose-actions button span{font-size:10px}
+ .post-actions button{font-size:11px}
+ .post-text{font-size:14px}
+}
+@media(max-width:360px){.brand{font-size:21px}.top-actions{gap:3px}.auth-trigger{padding:6px 8px}}
