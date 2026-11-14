@@ -56,4 +56,4 @@ GitHub Pages can serve this static project over HTTPS. Firebase domain authoriza
 4. Copy the deployed Worker URL into `miloop-ai-config.js` as `MILOOP_AI_API_URL`.
 5. Publish the updated Firestore rules from `firestore.rules` in Firebase Console → Firestore Database → Rules.
 
-The AI page is available from the MILOOP homepage after deployment. Gemini free-tier quotas and availability are controlled by Google and can change. On the free tier, Google may use submitted content to improve its products; check the current Gemini API terms before sending sensitive information.
+The AI page is available from the MILOOP homepage after deployment. Gemini quotas, availability, and pricing are controlled by Google and can change. Review Google's current data-use terms before sending sensitive information. Keep the Gemini API key in the Worker secret store, never in frontend files.
