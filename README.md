@@ -42,3 +42,18 @@ Media uploads, reporting, blocking, admin moderation, and mobile push notificati
 
 ## Hosting
 GitHub Pages can serve this static project over HTTPS. Firebase domain authorization must include the deployed host.
+
+## MILOOP AI (Gemini)
+- Added a separate responsive AI assistant page at `miloop-ai.html`.
+- Chat history is stored privately under `users/{uid}/aiChats` in Firestore.
+- The Gemini API key is never placed in GitHub Pages code. The Cloudflare Worker verifies Firebase ID tokens before forwarding prompts to Gemini.
+- Model: `gemini-3.8-flash`.
+
+### One-time setup required
+1. In Cloudflare, create a Worker named `miloop-ai-api` and deploy `cloudflare-worker/src/index.js`.
+2. Add a Worker secret named `GEMINI_API_KEY` with an API key created in Google AI Studio.
+3. Set Worker variables `FIREBASE_PROJECT_ID=miloop-e0d3a`, `FIREBASE_API_KEY` to the Firebase Web App API key from `firebase-config.js`, and `ALLOWED_ORIGIN=https://miloopbd.github.io`.
+4. Copy the deployed Worker URL into `miloop-ai-config.js` as `MILOOP_AI_API_URL`.
+5. Publish the updated Firestore rules from `firestore.rules` in Firebase Console → Firestore Database → Rules.
+
+The AI page is available from the MILOOP homepage after deployment. Gemini free-tier quotas and availability are controlled by Google and can change. On the free tier, Google may use submitted content to improve its products; check the current Gemini API terms before sending sensitive information.
