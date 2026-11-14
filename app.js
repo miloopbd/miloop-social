@@ -29,7 +29,7 @@ function relativeTime(value) {
   if(seconds<86400)return Math.floor(seconds/3600)+"h ago"; return Math.floor(seconds/86400)+"d ago";
 }
 function render() {
-  const q = $("search").value.trim().toLowerCase(), sort = $("sort").value;
+  const q = ($("search")?.value || "").trim().toLowerCase(), sort = $("sort")?.value || "latest";
   let list = posts.filter(p => (p.text+" "+p.authorName).toLowerCase().includes(q));
   if(sort==="popular") list.sort((a,b)=>(b.likeCount||0)-(a.likeCount||0));
   $("posts").innerHTML = list.length ? list.map(p => {
