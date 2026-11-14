@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#155eef">
+  <meta name="description" content="MILOOP AI — Ask. Learn. Create.">
+  <title>MILOOP AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="miloop-ai.css?v=20261114-1">
+</head>
+<body>
+  <header class="ai-topbar">
+    <a class="ai-brand" href="index.html"><span class="ai-brand-mark">M</span><span>MILOOP<span class="ai-brand-dot">.</span></span></a>
+    <div class="ai-top-label">✦ AI ASSISTANT</div>
+    <a class="ai-back-link" href="index.html">← Back to MILOOP</a>
+  </header>
+  <main class="ai-layout">
+    <aside class="ai-sidebar">
+      <button id="newChat" class="ai-new-chat">＋ New chat</button>
+      <div class="ai-history-heading">RECENT CHATS</div>
+      <div id="chatHistory" class="ai-history"><div class="ai-history-empty">Your chats will appear here.</div></div>
+      <div class="ai-sidebar-foot"><span class="ai-online-dot"></span> Powered by Google Gemini</div>
+    </aside>
+    <section class="ai-main">
+      <div class="ai-mobile-head"><button id="mobileNewChat" type="button">＋ New chat</button><span>MILOOP AI</span></div>
+      <div id="welcomeScreen" class="ai-welcome">
+        <div class="ai-orb">✦</div>
+        <p class="ai-eyebrow">YOUR AI ASSISTANT</p>
+        <h1>What can I help you with?</h1>
+        <p class="ai-welcome-copy">Ask questions, learn something new, solve problems, or bring your ideas to life.</p>
+        <div class="ai-suggestions">
+          <button type="button" data-prompt="Explain photosynthesis in simple Bangla."><b>📚 Learn something</b><span>Explain a topic simply</span></button>
+          <button type="button" data-prompt="Help me solve a maths problem step by step."><b>🧮 Solve a problem</b><span>Understand the steps</span></button>
+          <button type="button" data-prompt="Give me some creative ideas for a project."><b>💡 Get ideas</b><span>Brainstorm something new</span></button>
+          <button type="button" data-prompt="Help me write a clear and polite application in English."><b>✍️ Write something</b><span>Draft and improve text</span></button>
+        </div>
+      </div>
+      <div id="messages" class="ai-messages" aria-live="polite"></div>
+      <div class="ai-composer-wrap">
+        <form id="promptForm" class="ai-composer">
+          <textarea id="promptInput" rows="1" maxlength="12000" placeholder="Message MILOOP AI…" aria-label="Message MILOOP AI"></textarea>
+          <button id="sendButton" type="submit" aria-label="Send message">↑</button>
+        </form>
+        <div class="ai-composer-note">MILOOP AI can make mistakes. Check important information.</div>
+      </div>
+      <div id="aiToast" class="ai-toast" role="status"></div>
+    </section>
+    <aside class="ai-info">
+      <div class="ai-info-icon">✦</div>
+      <h3>Make room for ideas.</h3>
+      <p>Ask in Bangla or English. MILOOP AI can help with learning, writing, coding, creativity, and everyday questions.</p>
+      <div class="ai-info-rule"></div>
+      <small>Your conversations are saved to your MILOOP account and are private to you.</small>
+    </aside>
+  </main>
+  <div id="authNotice" class="ai-auth-notice" hidden>
+    <div class="ai-auth-card"><div class="ai-orb">✦</div><h2>Sign in to use MILOOP AI</h2><p>Your MILOOP account is needed to keep your chat history private.</p><a href="index.html">Go to MILOOP sign in</a></div>
+  </div>
+  <script type="module" src="miloop-ai.js?v=20261114-1"></script>
+</body>
+</html>
