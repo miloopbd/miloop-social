@@ -79,7 +79,8 @@ function friendlyError(error) {
 }
 async function updateAccountUI(user) {
   currentUser = user;
-  openButton.textContent = user ? "Account" : "Sign in";
+  openButton.textContent = "Sign in";
+  openButton.hidden = !!user;
   signOutButton.hidden = !user;
   forgotButton.hidden = !!user || mode === "signup";
 
