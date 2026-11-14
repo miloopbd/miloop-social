@@ -64,10 +64,10 @@ export default {
       contents.push({ role: "user", parts: [{ text: prompt }] });
 
       const aiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
           body: JSON.stringify({
             systemInstruction: { parts: [{ text:
               "You are MILOOP AI, a helpful, honest assistant inside the MILOOP social platform. Answer in the language the user uses, especially natural Bangla when they write Bangla. Be clear, kind, practical, and age-appropriate because some users may be minors. Explain uncertainty and never invent facts, sources, or capabilities. For current facts, say when you may be out of date. Do not provide instructions that facilitate self-harm, violence, dangerous substances, illegal activity, or bypassing safety systems. Do not sexualize minors. For medical, legal, or financial matters, provide general information and encourage an appropriate trusted adult or qualified professional when needed. Format answers with readable paragraphs and lists."
