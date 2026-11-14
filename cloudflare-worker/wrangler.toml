@@ -1,0 +1,8 @@
+name = "miloop-ai-api"
+main = "src/index.js"
+compatibility_date = "2026-11-14"
+
+[vars]
+FIREBASE_PROJECT_ID = "miloop-e0d3a"
+FIREBASE_API_KEY = "REPLACE_WITH_FIREBASE_WEB_API_KEY"
+ALLOWED_ORIGIN = "https://miloopbd.github.io"
