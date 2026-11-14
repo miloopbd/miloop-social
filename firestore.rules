@@ -1006,5 +1006,24 @@ service cloud.firestore {
       allow delete: if activeMember() && resource.data.uid == request.auth.uid;
     }
 
+    // Private MILOOP AI conversations. Each account can access only its own chats.
+    match /users/{userId}/aiChats/{chatId} {
+      allow read, create, update, delete: if activeMember()
+        && request.auth.uid == userId;
+      match /messages/{messageId} {
+        allow read, delete: if activeMember() && request.auth.uid == userId;
+        allow create: if activeMember()
+          && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['role','text','model','createdAt'])
+          && request.resource.data.role in ['user','assistant']
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 12000
+          && request.resource.data.createdAt == request.time
+          && (!('model' in request.resource.data) || request.resource.data.model is string);
+        allow update: if false;
+      }
+    }
+
   }
 }
