@@ -44,6 +44,7 @@ function close(){panel.classList.remove("open");}
 $("mdClose").onclick=close;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")close();});
 $("miloopDiscoverOpen")?.addEventListener("click",()=>open());
+$("topDiscoverButton")?.addEventListener("click",()=>open("explore"));
 document.querySelector("[data-md-open]")?.addEventListener("click",()=>open("explore"));
 document.addEventListener("click",e=>{
  const tab=e.target.closest("[data-md-tab]");if(tab){open(tab.dataset.mdTab);return;}
